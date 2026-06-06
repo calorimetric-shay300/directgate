@@ -1,0 +1,38 @@
+# Build artifacts
+*.o
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
+*.out
+*.log
+*.pid
+
+# Editor/OS files
+.DS_Store
+*.swp
+*~
+
+# Private files
+.env
+*.key
+
+# Core dumps
+core
+core.*
+
+# Build directories
+/build/
+/build-*/
+/obj/
+/bin/
+/.run/
+
+# Editors and agents
+.claude/settings.local.json
+.vscode/
+.codex/
+.cache/
+.idea/
+.todo/

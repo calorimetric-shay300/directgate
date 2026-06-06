@@ -1,0 +1,24 @@
+name: Sanitizers
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  asan-ubsan:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake build-essential clang pkg-config libssl-dev
+
+      - name: Build and run ASan/UBSan smoke tests
+        run: sh ./tests/run-sanitizers.sh

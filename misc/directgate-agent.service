@@ -1,0 +1,19 @@
+[Unit]
+Description=DirectGate Agent
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=<username>
+WorkingDirectory=<home>
+LogsDirectory=directgate
+LogsDirectoryMode=0755
+ExecStartPre=/bin/sh -c 'test -f "<home>/.config/directgate/agent.json"'
+ExecStart=<exec>
+Restart=on-failure
+RestartSec=2
+NoNewPrivileges=false
+
+[Install]
+WantedBy=multi-user.target

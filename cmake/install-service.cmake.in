@@ -1,0 +1,67 @@
+# Generated from cmake/install-service.cmake.in at configure time; this runs
+# during `make install`. It installs the systemd unit for the agent,
+# substituting the real user, home directory and executable path into
+# misc/directgate-agent.service (mirrors how directgate.sh builds the unit).
+
+set(_template "@DIRECTGATE_SERVICE_TEMPLATE@")
+set(_systemd_dir "@DIRECTGATE_SYSTEMD_DIR@")
+set(_bindir "@DIRECTGATE_INSTALL_BINDIR@")
+
+# Honor DESTDIR for staged / packaged installs.
+set(_destdir "$ENV{DESTDIR}")
+set(_dest "${_destdir}${_systemd_dir}/directgate-agent.service")
+
+# Determine the target user: the human running `sudo make install`
+# (SUDO_USER), falling back to USER, then to `id -un`.
+set(_user "$ENV{SUDO_USER}")
+if(NOT _user)
+  set(_user "$ENV{USER}")
+endif()
+if(NOT _user)
+  execute_process(COMMAND id -un
+    OUTPUT_VARIABLE _user OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+endif()
+
+if(NOT _user)
+  message(WARNING "directgate-agent.service: could not determine target user; skipping unit install")
+  return()
+endif()
+
+# Resolve the user's home directory. Prefer passwd data so custom home
+# locations work; fallback explicitly maps root to /root instead of /home/root.
+set(_home "")
+execute_process(COMMAND getent passwd "${_user}"
+  OUTPUT_VARIABLE _pwent OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+if(_pwent)
+  string(REPLACE ":" ";" _fields "${_pwent}")
+  list(LENGTH _fields _n)
+  if(_n GREATER 5)
+    list(GET _fields 5 _home)
+  endif()
+endif()
+if(NOT _home)
+  if(_user STREQUAL "root")
+    set(_home "/root")
+  else()
+    set(_home "/home/${_user}")
+  endif()
+endif()
+
+# Render the unit from the template. The legacy /home/<username> replacement is
+# kept so older local templates still render to the resolved home directory.
+file(READ "${_template}" _content)
+string(REPLACE "<home>" "${_home}" _content "${_content}")
+string(REPLACE "/home/<username>" "${_home}" _content "${_content}")
+string(REPLACE "<username>" "${_user}" _content "${_content}")
+string(REPLACE "<exec>" "${_bindir}/directgate" _content "${_content}")
+
+get_filename_component(_dest_dir "${_dest}" DIRECTORY)
+file(MAKE_DIRECTORY "${_dest_dir}")
+file(WRITE "${_dest}" "${_content}")
+message(STATUS "Installed systemd unit: ${_dest} (User=${_user})")
+
+# Best-effort: refresh systemd so the new unit is visible. Skipped for staged
+# installs (DESTDIR) and when systemd is not running.
+if(NOT _destdir AND EXISTS "/run/systemd/system")
+  execute_process(COMMAND systemctl daemon-reload ERROR_QUIET RESULT_VARIABLE _ignored)
+endif()

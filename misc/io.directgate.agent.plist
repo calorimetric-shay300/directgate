@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>online.directgate.agent</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string><exec></string>
+    </array>
+    <key>UserName</key>
+    <string><username></string>
+    <key>WorkingDirectory</key>
+    <string><home></string>
+    <key>KeepAlive</key>
+    <true/>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string><home>/Library/Logs/directgate/directgate.log</string>
+    <key>StandardErrorPath</key>
+    <string><home>/Library/Logs/directgate/directgate.log</string>
+</dict>
+</plist>

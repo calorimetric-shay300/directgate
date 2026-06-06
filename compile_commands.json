@@ -1,0 +1,21 @@
+[
+  {
+    "directory": "/opt/directgate/directgate-agent",
+    "file": "src/agent/directgate.c",
+    "arguments": [
+      "cc",
+      "-D_XUTILS_USE_GNU",
+      "-D_XCHECK_LOG",
+      "-Isrc",
+      "-Isrc/common",
+      "-Isrc/client",
+      "-Isrc/agent",
+      "-Ilibxutils",
+      "-Ilibxutils/src",
+      "-Ilibxutils/src/crypt",
+      "-Ilibxutils/src/data",
+      "-Ilibxutils/src/net",
+      "-Ilibxutils/src/sys",
+      "-c", "src/agent/directgate.c"]
+  }
+]

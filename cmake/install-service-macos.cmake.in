@@ -1,0 +1,58 @@
+# Generated from cmake/install-service-macos.cmake.in at configure time; this
+# runs during `make install` on macOS. It installs a launchd daemon for the
+# agent, substituting the real user and home directory for the placeholders
+# in misc/io.directgate.agent.plist so the agent runs as the installing user
+# (the launchd equivalent of the Linux systemd unit).
+
+set(_template "@DIRECTGATE_LAUNCHD_TEMPLATE@")
+set(_launchd_dir "@DIRECTGATE_LAUNCHD_DIR@")
+set(_bindir "@DIRECTGATE_INSTALL_BINDIR@")
+
+# Honor DESTDIR for staged / packaged installs.
+set(_destdir "$ENV{DESTDIR}")
+set(_dest "${_destdir}${_launchd_dir}/io.directgate.agent.plist")
+
+# Determine the target user: the human running `sudo make install`
+# (SUDO_USER), falling back to USER, then to `id -un`.
+set(_user "$ENV{SUDO_USER}")
+if(NOT _user)
+  set(_user "$ENV{USER}")
+endif()
+if(NOT _user)
+  execute_process(COMMAND id -un
+    OUTPUT_VARIABLE _user OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+endif()
+
+if(NOT _user OR _user STREQUAL "root")
+  message(WARNING "io.directgate.agent.plist: could not determine a non-root target user; skipping service install")
+  return()
+endif()
+
+# Resolve the user's home directory via Directory Services (macOS), with a fallback.
+set(_home "")
+execute_process(COMMAND dscl . -read "/Users/${_user}" NFSHomeDirectory
+  OUTPUT_VARIABLE _dscl OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+if(_dscl)
+  string(REGEX REPLACE "^NFSHomeDirectory:[ \t]*" "" _home "${_dscl}")
+  string(STRIP "${_home}" _home)
+endif()
+if(NOT _home)
+  set(_home "/Users/${_user}")
+endif()
+
+# Render the plist from the template.
+file(READ "${_template}" _content)
+string(REPLACE "<home>" "${_home}" _content "${_content}")
+string(REPLACE "<username>" "${_user}" _content "${_content}")
+string(REPLACE "<exec>" "${_bindir}/directgate" _content "${_content}")
+
+get_filename_component(_dest_dir "${_dest}" DIRECTORY)
+file(MAKE_DIRECTORY "${_dest_dir}")
+file(WRITE "${_dest}" "${_content}")
+message(STATUS "Installed launchd service: ${_dest} (UserName=${_user})")
+
+# Create the log directory owned by the target user (skipped for staged installs).
+if(NOT _destdir)
+  file(MAKE_DIRECTORY "${_home}/Library/Logs/directgate")
+  execute_process(COMMAND chown "${_user}" "${_home}/Library/Logs/directgate" ERROR_QUIET)
+endif()
