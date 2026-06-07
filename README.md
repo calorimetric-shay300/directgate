@@ -167,15 +167,19 @@ The WebRTC data channel is secured with DTLS (Datagram Transport Layer Security)
 
 **End-to-End Encryption (AES-256-SIV)**
 
-Terminal data exchanged between agent and client is encrypted end-to-end using AES-256-SIV at the application layer (independent of transport). The keys are derived from the SRP session key via HKDF-SHA256, using the agent nonce, client nonce and agent ID as context. Using both nonces as HKDF salt ensures mutual freshness - neither side alone can predict or replay the derived keys. All post-authentication traffic is protected by encryption and authenticated message framing, where each packet includes a monotonic counter and a full-packet authentication tag. The continuity counter starts at 1 for each session and increments with every encrypted packet sent, providing replay protection and message integrity.
+Terminal data exchanged between agent and client is encrypted end-to-end using AES-256-SIV at the application layer (independent of transport). The keys are derived from the SRP session key via HKDF-SHA256, using the agent nonce, client nonce and agent ID as context. Using both nonces in the derivation ensures session freshness and prevents either side from unilaterally determining the resulting encryption keys. Separate keys are derived for each direction, so traffic sent by the agent and traffic sent by the client are protected with different encryption keys.
+
+All post-authentication traffic is protected by authenticated encryption. Each packet includes a strictly monotonically increasing continuity counter that is authenticated and incorporated into the AES-SIV computation. The counter starts at 1 for each session and increments with every encrypted packet, providing replay protection while also ensuring that packet uniqueness does not depend solely on nonce uniqueness.
+
+DirectGate additionally generates a fresh cryptographically secure random nonce for every encrypted packet. The combination of per-packet nonces and authenticated packet metadata helps prevent ciphertext repetition across otherwise identical messages. AES-SIV was chosen because it is nonce-misuse resistant by design: accidental nonce reuse does not result in the catastrophic confidentiality failures associated with conventional nonce-based AEAD modes such as AES-GCM. The design does not rely on any single mechanism for uniqueness or replay protection; packet counters, authenticated metadata, per-packet nonces and AES-SIV's nonce-misuse resistance provide multiple independent layers of protection.
 
 This ensures:
 - The relay cannot access plaintext terminal data even when forwarding it
-- The relay cannot access signaling messages or the DTLS fingerprints inside the SDP
+- The relay cannot access signaling messages, including SDP offers, answers, ICE candidates and DTLS fingerprints
 - Only the paired agent and client can decrypt session data - the relay has zero knowledge of payload contents
 - End-to-end encryption is preserved across both the WebSocket relay path and the WebRTC P2P path
 - Session integrity is maintained end-to-end regardless of the underlying transport
-- Replay attacks, message tampering, payload modification and transport-level manipulation are mitigated
+- Replay attacks, reflected packets, message tampering, payload modification and transport-level manipulation are mitigated
 
 **SRP-6a Authentication**
 

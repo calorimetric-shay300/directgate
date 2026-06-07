@@ -24,6 +24,9 @@
 
 /* SIV synthetic tag is one AES block, prepended to the ciphertext. */
 #define XSIV_TAG_SIZE   XAES_BLOCK_SIZE
+/* Per-message random nonce (one AES block) prepended to the whole output. It is
+   the S2V associated-data string that makes the scheme non-deterministic. */
+#define XSIV_NONCE_SIZE XAES_BLOCK_SIZE
 /* Largest per-half key we accept (AES-256 -> 32-byte MAC + 32-byte CTR). */
 #define XSIV_MAX_HALF   XAES_KEY_LENGTH
 
@@ -50,34 +53,43 @@
 /* libxutils (portable) backend                                              */
 /* ------------------------------------------------------------------------- */
 
-static uint8_t* DirectGate_SIV_XUtilsEncrypt(const uint8_t *pCmacKey, const uint8_t *pCtrKey, size_t nKeyBits,
-                                             const uint8_t *pData, size_t nLength, size_t *pOutLen)
+/* Writes `siv_tag || ciphertext` (XSIV_TAG_SIZE + nLength bytes) into pDst. The
+   nonce is the S2V associated-data string; pDst must be caller-allocated. */
+static xbool_t DirectGate_SIV_XUtilsEncrypt(const uint8_t *pCmacKey, const uint8_t *pCtrKey, size_t nKeyBits,
+                                            const uint8_t *pNonce, const uint8_t *pData, size_t nLength, uint8_t *pDst)
 {
     xaes_key_t key;
     XAES_InitSIVKey(&key, pCmacKey, pCtrKey, nKeyBits);
 
     xaes_t ctx;
-    XCHECK((XAES_Init(&ctx, &key, XAES_MODE_SIV) >= 0), NULL);
+    XCHECK((XAES_Init(&ctx, &key, XAES_MODE_SIV_NONCE) >= 0), XFALSE);
+    XAES_SetSIVNonce(&ctx, pNonce, XSIV_NONCE_SIZE);
 
     size_t nEncLen = nLength;
     uint8_t *pEncrypted = XAES_Encrypt(&ctx, pData, &nEncLen);
-    XCHECK_NL((pEncrypted != NULL), NULL);
+    OPENSSL_cleanse(&key, sizeof(key));
+    OPENSSL_cleanse(&ctx, sizeof(ctx));
+    XCHECK_NL((pEncrypted != NULL), XFALSE);
 
-    *pOutLen = nEncLen;
-    return pEncrypted;
+    memcpy(pDst, pEncrypted, nEncLen);
+    free(pEncrypted);
+    return XTRUE;
 }
 
 static uint8_t* DirectGate_SIV_XUtilsDecrypt(const uint8_t *pCmacKey, const uint8_t *pCtrKey, size_t nKeyBits,
-                                             const uint8_t *pData, size_t nLength, size_t *pOutLen)
+                                             const uint8_t *pNonce, const uint8_t *pData, size_t nLength, size_t *pOutLen)
 {
     xaes_key_t key;
     XAES_InitSIVKey(&key, pCmacKey, pCtrKey, nKeyBits);
 
     xaes_t ctx;
-    XCHECK((XAES_Init(&ctx, &key, XAES_MODE_SIV) >= 0), NULL);
+    XCHECK((XAES_Init(&ctx, &key, XAES_MODE_SIV_NONCE) >= 0), NULL);
+    XAES_SetSIVNonce(&ctx, pNonce, XSIV_NONCE_SIZE);
 
     size_t nDecLen = nLength;
     uint8_t *pDecrypted = XAES_Decrypt(&ctx, pData, &nDecLen);
+    OPENSSL_cleanse(&key, sizeof(key));
+    OPENSSL_cleanse(&ctx, sizeof(ctx));
     XCHECK_NL((pDecrypted != NULL), NULL);
 
     *pOutLen = nDecLen;
@@ -128,41 +140,45 @@ static xbool_t DirectGate_SIV_OpenSSLReady(void)
     return nReady ? XTRUE : XFALSE;
 }
 
-static uint8_t* DirectGate_SIV_OpenSSLEncrypt(const uint8_t *pCmacKey, const uint8_t *pCtrKey, size_t nKeyBits,
-                                              const uint8_t *pData, size_t nLength, size_t *pOutLen)
+/* Writes `siv_tag || ciphertext` (XSIV_TAG_SIZE + nLength bytes) into pDst. The
+   nonce is fed as the single associated-data string so OpenSSL's S2V matches the
+   libxutils and web backends byte-for-byte. pDst must be caller-allocated. */
+static xbool_t DirectGate_SIV_OpenSSLEncrypt(const uint8_t *pCmacKey, const uint8_t *pCtrKey, size_t nKeyBits,
+                                             const uint8_t *pNonce, const uint8_t *pData, size_t nLength, uint8_t *pDst)
 {
     const char *pName = DirectGate_SIV_CipherName(nKeyBits);
-    XCHECK((pName != NULL && nLength <= INT_MAX), NULL);
+    XCHECK((pName != NULL && nLength <= INT_MAX), XFALSE);
 
     uint8_t fullKey[XSIV_MAX_HALF * 2];
     size_t nHalf = 0;
-    XCHECK(DirectGate_SIV_JoinKey(fullKey, sizeof(fullKey), pCmacKey, pCtrKey, nKeyBits, &nHalf), NULL);
+    XCHECK(DirectGate_SIV_JoinKey(fullKey, sizeof(fullKey), pCmacKey, pCtrKey, nKeyBits, &nHalf), XFALSE);
 
     EVP_CIPHER *pCipher = EVP_CIPHER_fetch(NULL, pName, NULL);
     EVP_CIPHER_CTX *pCtx = EVP_CIPHER_CTX_new();
-    uint8_t *pOut = malloc(XSIV_TAG_SIZE + nLength);
-    int nWritten = 0, nFinal = 0;
+    int nWritten = 0, nFinal = 0, nAad = 0;
+    xbool_t bOk = XFALSE;
 
-    if (pCipher == NULL || pCtx == NULL || pOut == NULL ||
-        EVP_EncryptInit_ex2(pCtx, pCipher, fullKey, NULL, NULL) != 1 ||
-        EVP_EncryptUpdate(pCtx, pOut + XSIV_TAG_SIZE, &nWritten, pData, (int)nLength) != 1 ||
-        EVP_EncryptFinal_ex(pCtx, pOut + XSIV_TAG_SIZE + nWritten, &nFinal) != 1 ||
-        (size_t)(nWritten + nFinal) != nLength ||
-        EVP_CIPHER_CTX_ctrl(pCtx, EVP_CTRL_AEAD_GET_TAG, XSIV_TAG_SIZE, pOut) != 1)
+    if (pCipher != NULL && pCtx != NULL &&
+        EVP_EncryptInit_ex2(pCtx, pCipher, fullKey, NULL, NULL) == 1 &&
+        EVP_EncryptUpdate(pCtx, NULL, &nAad, pNonce, XSIV_NONCE_SIZE) == 1 &&
+        EVP_EncryptUpdate(pCtx, pDst + XSIV_TAG_SIZE, &nWritten, pData, (int)nLength) == 1 &&
+        EVP_EncryptFinal_ex(pCtx, pDst + XSIV_TAG_SIZE + nWritten, &nFinal) == 1 &&
+        (size_t)(nWritten + nFinal) == nLength &&
+        EVP_CIPHER_CTX_ctrl(pCtx, EVP_CTRL_AEAD_GET_TAG, XSIV_TAG_SIZE, pDst) == 1)
     {
-        free(pOut);
-        pOut = NULL;
+        bOk = XTRUE;
     }
-    else *pOutLen = XSIV_TAG_SIZE + nLength;
 
     EVP_CIPHER_CTX_free(pCtx);
     EVP_CIPHER_free(pCipher);
     OPENSSL_cleanse(fullKey, sizeof(fullKey));
-    return pOut;
+    return bOk;
 }
 
+/* pData is `siv_tag || ciphertext` (nLength bytes); pNonce is the associated
+   data. Returns malloc'd plaintext, or NULL on tag mismatch. */
 static uint8_t* DirectGate_SIV_OpenSSLDecrypt(const uint8_t *pCmacKey, const uint8_t *pCtrKey, size_t nKeyBits,
-                                              const uint8_t *pData, size_t nLength, size_t *pOutLen)
+                                              const uint8_t *pNonce, const uint8_t *pData, size_t nLength, size_t *pOutLen)
 {
     const char *pName = DirectGate_SIV_CipherName(nKeyBits);
     XCHECK((pName != NULL && nLength > XSIV_TAG_SIZE && nLength - XSIV_TAG_SIZE <= INT_MAX), NULL);
@@ -175,11 +191,12 @@ static uint8_t* DirectGate_SIV_OpenSSLDecrypt(const uint8_t *pCmacKey, const uin
     EVP_CIPHER *pCipher = EVP_CIPHER_fetch(NULL, pName, NULL);
     EVP_CIPHER_CTX *pCtx = EVP_CIPHER_CTX_new();
     uint8_t *pOut = malloc(nCipherLen);
-    int nWritten = 0, nFinal = 0;
+    int nWritten = 0, nFinal = 0, nAad = 0;
 
     if (pCipher == NULL || pCtx == NULL || pOut == NULL ||
         EVP_DecryptInit_ex2(pCtx, pCipher, fullKey, NULL, NULL) != 1 ||
         EVP_CIPHER_CTX_ctrl(pCtx, EVP_CTRL_AEAD_SET_TAG, XSIV_TAG_SIZE, (void*)pData) != 1 ||
+        EVP_DecryptUpdate(pCtx, NULL, &nAad, pNonce, XSIV_NONCE_SIZE) != 1 ||
         EVP_DecryptUpdate(pCtx, pOut, &nWritten, pData + XSIV_TAG_SIZE, (int)nCipherLen) != 1 ||
         EVP_DecryptFinal_ex(pCtx, pOut + nWritten, &nFinal) != 1 ||
         (size_t)(nWritten + nFinal) != nCipherLen)
@@ -206,24 +223,68 @@ uint8_t* DirectGate_SIV_Encrypt(const uint8_t *pCmacKey, const uint8_t *pCtrKey,
     XCHECK((pCmacKey != NULL && pCtrKey != NULL), NULL);
     XCHECK((pData != NULL && nLength > 0), NULL);
     XCHECK((pOutLen != NULL), NULL);
+    XCHECK((nLength <= SIZE_MAX - XSIV_NONCE_SIZE - XSIV_TAG_SIZE), NULL);
 
+    /* Output layout: nonce || siv_tag || ciphertext. The backend writes the
+       siv_tag||ciphertext directly after the nonce, so the hot OpenSSL path
+       allocates and copies exactly once. */
+    size_t nTotal = XSIV_NONCE_SIZE + XSIV_TAG_SIZE + nLength;
+    uint8_t *pOut = malloc(nTotal);
+    XCHECK((pOut != NULL), NULL);
+
+    /*
+     * Fresh random nonce is generated for every message as a defense-in-depth
+     * measure. The AES-SIV mode itself is chosen because it is misuse-resistant.
+     * Accidental nonce reuse does not break confidentiality in the catastrophic
+     * way it would for conventional AEAD modes such as GCM or ChaCha20-Poly1305.
+     *
+     * In addition, every encrypted packet carries a strictly monotonically
+     * increasing counter (CC) which is authenticated and incorporated into
+     * the SIV computation. As a result, even if a nonce were ever repeated,
+     * distinct packets would still produce distinct ciphertexts due to the
+     * changing authenticated packet metadata.
+     *
+     * The random nonce therefore serves as an additional independent layer
+     * against ciphertext repetition and protocol implementation mistakes,
+     * rather than being the sole mechanism relied upon for security.
+     */
+    XCHECK_FREE((RAND_bytes(pOut, XSIV_NONCE_SIZE) == 1), pOut, NULL);
+
+    xbool_t bOk;
 #ifdef XSIV_HAVE_OPENSSL
     if (DirectGate_SIV_OpenSSLReady())
-        return DirectGate_SIV_OpenSSLEncrypt(pCmacKey, pCtrKey, nKeyBits, pData, nLength, pOutLen);
+    {
+        bOk = DirectGate_SIV_OpenSSLEncrypt(pCmacKey, pCtrKey, nKeyBits, pOut, pData, nLength, pOut + XSIV_NONCE_SIZE);
+        XCHECK_FREE(bOk, pOut, NULL);
+
+        *pOutLen = nTotal;
+        return pOut;
+    }
 #endif
-    return DirectGate_SIV_XUtilsEncrypt(pCmacKey, pCtrKey, nKeyBits, pData, nLength, pOutLen);
+
+    bOk = DirectGate_SIV_XUtilsEncrypt(pCmacKey, pCtrKey, nKeyBits, pOut, pData, nLength, pOut + XSIV_NONCE_SIZE);
+    XCHECK_FREE(bOk, pOut, NULL);
+
+    *pOutLen = nTotal;
+    return pOut;
 }
 
 uint8_t* DirectGate_SIV_Decrypt(const uint8_t *pCmacKey, const uint8_t *pCtrKey, size_t nKeyBits,
                                 const uint8_t *pData, size_t nLength, size_t *pOutLen)
 {
     XCHECK((pCmacKey != NULL && pCtrKey != NULL), NULL);
-    XCHECK((pData != NULL && nLength > XSIV_TAG_SIZE), NULL);
+    /* Need nonce + tag + at least one ciphertext byte. */
+    XCHECK((pData != NULL && nLength > XSIV_NONCE_SIZE + XSIV_TAG_SIZE), NULL);
     XCHECK((pOutLen != NULL), NULL);
+
+    const uint8_t *pNonce = pData;
+    const uint8_t *pBody  = pData + XSIV_NONCE_SIZE; /* siv_tag || ciphertext */
+    size_t nBodyLen = nLength - XSIV_NONCE_SIZE;
 
 #ifdef XSIV_HAVE_OPENSSL
     if (DirectGate_SIV_OpenSSLReady())
-        return DirectGate_SIV_OpenSSLDecrypt(pCmacKey, pCtrKey, nKeyBits, pData, nLength, pOutLen);
+        return DirectGate_SIV_OpenSSLDecrypt(pCmacKey, pCtrKey, nKeyBits, pNonce, pBody, nBodyLen, pOutLen);
 #endif
-    return DirectGate_SIV_XUtilsDecrypt(pCmacKey, pCtrKey, nKeyBits, pData, nLength, pOutLen);
+
+    return DirectGate_SIV_XUtilsDecrypt(pCmacKey, pCtrKey, nKeyBits, pNonce, pBody, nBodyLen, pOutLen);
 }

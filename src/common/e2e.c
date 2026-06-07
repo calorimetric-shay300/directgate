@@ -164,8 +164,8 @@ uint8_t* DirectGate_E2E_Decrypt(const directgate_e2e_t *pE2E, const uint8_t *pDa
     XCHECK((pOutLen != NULL), NULL);
     XCHECK((pE2E->bInitialized), NULL);
 
-    /* Need at least SIV tag (16) */
-    XCHECK_NL((nLength > XE2E_IV_SIZE),
+    /* Need at least nonce (16) + SIV tag (16) before any ciphertext. */
+    XCHECK_NL((nLength > (size_t)XE2E_IV_SIZE * 2),
         xthrowp(NULL, "E2E: Message too short for decryption"));
 
     uint8_t *pDecrypted = DirectGate_SIV_Decrypt(pE2E->rxCmacKey, pE2E->rxCtrKey,

@@ -112,19 +112,22 @@ int main(void)
     size_t nEncLen = 0;
     uint8_t *pEncrypted = DirectGate_E2E_Encrypt(&keyE2E, plaintext,
         sizeof(plaintext), &nEncLen);
-    CHECK(pEncrypted != NULL && nEncLen > sizeof(plaintext), "E2E encrypt");
+    /* Wire layout is nonce(16) || siv_tag(16) || ciphertext, i.e. 32 bytes of
+       overhead. The byte-exact S2V/CTR vectors are checked against OpenSSL with
+       fixed nonces in crypto_siv_openssl_smoke; here the nonce is random. */
+    CHECK(pEncrypted != NULL &&
+          nEncLen == (size_t)XE2E_IV_SIZE * 2 + sizeof(plaintext),
+        "E2E encrypt length");
 
-    const uint8_t expectedCiphertext[] = {
-        0x7c, 0x88, 0x61, 0xbf, 0x21, 0x5d, 0x34, 0x05,
-        0x96, 0x60, 0xa4, 0xf6, 0xe6, 0xb3, 0x33, 0xc3,
-        0x8b, 0xee, 0xe6, 0xfe, 0xee, 0x29, 0x51, 0x9d,
-        0x7e, 0x19, 0xc6, 0x34, 0x1b, 0x28, 0x04, 0x84,
-        0x1b, 0x6e, 0xd8, 0x00, 0xbb, 0xd3, 0xb1, 0x43,
-        0x47, 0xd7, 0xa8, 0x6f, 0x36
-    };
-    CHECK(nEncLen == sizeof(expectedCiphertext) &&
-          memcmp(pEncrypted, expectedCiphertext, sizeof(expectedCiphertext)) == 0,
-        "AES-SIV known-answer wire vector");
+    /* Non-determinism: encrypting the same plaintext again must yield different
+       bytes (fresh random nonce → fresh synthetic IV → fresh ciphertext). */
+    size_t nEncLen2 = 0;
+    uint8_t *pEncrypted2 = DirectGate_E2E_Encrypt(&keyE2E, plaintext,
+        sizeof(plaintext), &nEncLen2);
+    CHECK(pEncrypted2 != NULL && nEncLen2 == nEncLen, "E2E encrypt (second)");
+    CHECK(memcmp(pEncrypted, pEncrypted2, nEncLen) != 0,
+        "AES-SIV must be non-deterministic across encryptions");
+    free(pEncrypted2);
 
     size_t nDecLen = 0;
     uint8_t *pDecrypted = DirectGate_E2E_Decrypt(&keyE2E2, pEncrypted,
