@@ -134,6 +134,7 @@ add_library(xcommon STATIC
     ${COMMON_DIR}/keyauth.c
     ${COMMON_DIR}/logger.c
     ${COMMON_DIR}/protocol.c
+    ${COMMON_DIR}/siv.c
     ${COMMON_DIR}/srp.c
     ${COMMON_DIR}/transfer.c
     ${COMMON_DIR}/version.c

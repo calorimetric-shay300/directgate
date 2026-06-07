@@ -58,6 +58,8 @@ Source and debug packages are published for every release to provide transparenc
 
 ## The directgate.io web client
 
+Using the hosted DirectGate web client requires trust in the DirectGate service and API infrastructure, just as with any other SaaS platform. While the agent source code is public and can be independently audited, account management, authentication, signaling, and service coordination are provided by DirectGate.
+
 Everything below runs against the agent in this repository. These are the experiences the agent powers once it is paired with your account:
 
 <table align="center">

@@ -21,6 +21,7 @@
 
 #include "e2e.h"
 #include "hkdf.h"
+#include "siv.h"
 #include "srp.h"
 
 void DirectGate_E2E_Init(directgate_e2e_t *pE2E)
@@ -149,18 +150,10 @@ uint8_t* DirectGate_E2E_Encrypt(const directgate_e2e_t *pE2E, const uint8_t *pDa
     XCHECK((pData != NULL && nLength > 0), NULL);
     XCHECK((pOutLen != NULL), NULL);
 
-    xaes_key_t key;
-    XAES_InitSIVKey(&key, pE2E->txCmacKey, pE2E->txCtrKey, XE2E_AES_SIZE);
-
-    xaes_t ctx;
-    XCHECK((XAES_Init(&ctx, &key, XAES_MODE_SIV) >= 0),
-        xthrowp(NULL, "E2E: Failed to initialize AES-SIV context for encryption"));
-
-    size_t nEncLen = nLength;
-    uint8_t *pEncrypted = XAES_Encrypt(&ctx, pData, &nEncLen);
+    uint8_t *pEncrypted = DirectGate_SIV_Encrypt(pE2E->txCmacKey, pE2E->txCtrKey,
+        XE2E_AES_SIZE, pData, nLength, pOutLen);
     XCHECK((pEncrypted != NULL), xthrowp(NULL, "E2E: AES-SIV encryption failed"));
 
-    *pOutLen = nEncLen;
     return pEncrypted;
 }
 
@@ -175,17 +168,9 @@ uint8_t* DirectGate_E2E_Decrypt(const directgate_e2e_t *pE2E, const uint8_t *pDa
     XCHECK_NL((nLength > XE2E_IV_SIZE),
         xthrowp(NULL, "E2E: Message too short for decryption"));
 
-    xaes_key_t key;
-    XAES_InitSIVKey(&key, pE2E->rxCmacKey, pE2E->rxCtrKey, XE2E_AES_SIZE);
-
-    xaes_t ctx;
-    XCHECK((XAES_Init(&ctx, &key, XAES_MODE_SIV) >= 0),
-        xthrowp(NULL, "E2E: Failed to initialize AES-SIV context for decryption"));
-
-    size_t nDecLen = nLength;
-    uint8_t *pDecrypted = XAES_Decrypt(&ctx, pData, &nDecLen);
+    uint8_t *pDecrypted = DirectGate_SIV_Decrypt(pE2E->rxCmacKey, pE2E->rxCtrKey,
+        XE2E_AES_SIZE, pData, nLength, pOutLen);
     XCHECK((pDecrypted != NULL), xthrowp(NULL, "E2E: AES-SIV decryption failed"));
 
-    *pOutLen = nDecLen;
     return pDecrypted;
 }
