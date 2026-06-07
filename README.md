@@ -199,21 +199,6 @@ In addition to SRP, the agent supports Ed25519 key authorization. The agent hold
 
 End-to-end encryption protects payload contents, not routing metadata. The relay necessarily sees the device ID/routing key used to pair endpoints, source IP addresses, connection timing, and traffic volume carried through the relay. This metadata exposure is inherent to the relay design; "zero knowledge" refers to terminal, file, editor, and signaling payload contents.
 
-**What the Relay Operator Can and Cannot Do**
-
-Concrete boundaries, so you don't have to guess.
-
-| Can | Cannot |
-|------|---------|
-| Route encrypted traffic between your devices | Decrypt end-to-end encrypted terminal sessions or file transfers |
-| Refuse to route traffic | Read the contents of encrypted application data |
-| See operational metadata such as device IDs, online/offline status, connection attempts, and traffic volume | Modify encrypted payloads without detection |
-| Enforce account-level limits and service policies | Authenticate as one of your devices without the required cryptographic credentials |
-| Rate-limit, reject, or terminate connections | Recover plaintext passwords from stored password hashes |
-| Collect service logs required to operate the platform | Access data that exists only on your devices |
-
-> **Note:** These statements describe the intended trust model and current implementation of DirectGate. Users are encouraged to review the source code and documentation to independently verify these properties.
-
 **More about security**
 
 For additional details about DirectGate's security architecture, cryptographic design, threat model, trust assumptions and frequently asked questions, see: [https://directgate.io/security](https://directgate.io/security)
