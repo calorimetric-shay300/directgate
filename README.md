@@ -197,7 +197,7 @@ After step 6, the client initiates WebRTC P2P negotiation in parallel with the a
 
 **Key-based authorization (optional)**
 
-In addition to SRP, the agent supports Ed25519 key authorization. The agent holds an identity keypair (`agentIdentity`) and a list of `authorizedKeys`; clients can be authorized by public key, and new keys can be added at runtime over the authenticated channel (`admin/add-key`). See [Agent Configuration](#agent-specific-configuration).
+In addition to SRP, the agent supports Ed25519 key authorization. The agent holds an identity keypair (`agentIdentity`) and a list of `authorizedKeys`; clients can be authorized by public key, and new keys can be added at runtime over the authenticated channel (`admin/add-key`) just like `ssh-copy-id` does. See [Agent Configuration](#agent-specific-configuration).
 
 **More about security**
 
@@ -529,6 +529,24 @@ The agent uses a JSON configuration file. You can point to one with `-c <path>`,
 | `auth.key.authorizedKeys`      | string[] | Authorized client Ed25519 public keys      |
 
 Most of these fields are populated for you during [pairing](#pairing-with-your-account) and the interactive setup (`directgate -i`, `directgate -s`).
+
+### Systemd Hardening
+
+By default, DirectGate installs its systemd service with `NoNewPrivileges=false`. This is required to allow privilege escalation mechanisms such as `sudo` to function correctly within remote terminal sessions.
+
+This default is a deliberate tradeoff between functionality and isolation. Although `NoNewPrivileges` is disabled, the agent does not execute user sessions with elevated privileges by default and drops privileges to the configured account before handling interactive workloads.
+
+If you do not require privilege escalation from remote sessions, you may set:
+
+```ini
+NoNewPrivileges=true
+```
+
+for additional hardening.
+
+Administrators are also encouraged to apply further systemd sandboxing restrictions where appropriate, such as `PrivateTmp`, filesystem restrictions, capability filtering, address family restrictions, and other hardening directives based on their deployment requirements.
+
+As with any remote access software, the appropriate hardening profile depends on the balance between functionality and security required by your environment.
 
 ### Experimental CLI Client
 
