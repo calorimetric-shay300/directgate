@@ -58,7 +58,7 @@ Source and debug packages are published for every release to provide transparenc
 
 ## The directgate.io web client
 
-Using the hosted DirectGate web client requires trust in the DirectGate service and API infrastructure, just as with any other SaaS platform. While the agent source code is public and can be independently audited, account management, authentication, signaling, and service coordination are provided by DirectGate.
+Using the hosted DirectGate web client requires trust in the DirectGate service and API infrastructure, just as with any other SaaS platform. While the agent source code is public and can be independently audited, account management, signaling, and service coordination are provided by DirectGate.
 
 Everything below runs against the agent in this repository. These are the experiences the agent powers once it is paired with your account:
 
@@ -177,10 +177,6 @@ This ensures:
 - Session integrity is maintained end-to-end regardless of the underlying transport
 - Replay attacks, message tampering, payload modification and transport-level manipulation are mitigated
 
-**Relay-visible metadata**
-
-End-to-end encryption protects payload contents, not routing metadata. The relay necessarily sees the device ID/routing key used to pair endpoints, source IP addresses, connection timing, and traffic volume carried through the relay. This metadata exposure is inherent to the relay design; "zero knowledge" refers to terminal, file, editor, and signaling payload contents.
-
 **SRP-6a Authentication**
 
 Authentication uses SRP-6a (Secure Remote Password). No password is ever transmitted in any form:
@@ -198,6 +194,25 @@ After step 6, the client initiates WebRTC P2P negotiation in parallel with the a
 **Key-based authorization (optional)**
 
 In addition to SRP, the agent supports Ed25519 key authorization. The agent holds an identity keypair (`agentIdentity`) and a list of `authorizedKeys`; clients can be authorized by public key, and new keys can be added at runtime over the authenticated channel (`admin/add-key`) just like `ssh-copy-id` does. See [Agent Configuration](#agent-specific-configuration).
+
+**Relay-visible metadata**
+
+End-to-end encryption protects payload contents, not routing metadata. The relay necessarily sees the device ID/routing key used to pair endpoints, source IP addresses, connection timing, and traffic volume carried through the relay. This metadata exposure is inherent to the relay design; "zero knowledge" refers to terminal, file, editor, and signaling payload contents.
+
+**What the Relay Operator Can and Cannot Do**
+
+Concrete boundaries, so you don't have to guess.
+
+| Can | Cannot |
+|------|---------|
+| Route encrypted traffic between your devices | Decrypt end-to-end encrypted terminal sessions or file transfers |
+| Refuse to route traffic | Read the contents of encrypted application data |
+| See operational metadata such as device IDs, online/offline status, connection attempts, and traffic volume | Modify encrypted payloads without detection |
+| Enforce account-level limits and service policies | Authenticate as one of your devices without the required cryptographic credentials |
+| Rate-limit, reject, or terminate connections | Recover plaintext passwords from stored password hashes |
+| Collect service logs required to operate the platform | Access data that exists only on your devices |
+
+> **Note:** These statements describe the intended trust model and current implementation of DirectGate. Users are encouraged to review the source code and documentation to independently verify these properties.
 
 **More about security**
 
