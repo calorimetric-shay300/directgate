@@ -34,6 +34,12 @@ foreach(test
     directgate_smoke(${test})
 endforeach()
 
+# OpenSSL 3 exposes AES-SIV through EVP. When available, use it as an
+# independent differential oracle for the bundled portable implementation.
+if(OPENSSL_VERSION VERSION_GREATER_EQUAL "3.0")
+    directgate_smoke(crypto_siv_openssl_smoke)
+endif()
+
 # Agent tests that also compile specific agent sources.
 directgate_smoke(enroll_smoke        ${AGENT_DIR}/config.c ${AGENT_DIR}/enroll.c)
 directgate_smoke(enroll_edge_smoke   ${AGENT_DIR}/config.c ${AGENT_DIR}/enroll.c)

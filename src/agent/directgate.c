@@ -937,13 +937,10 @@ static int DirectGate_HandleCmd(xapi_session_t *pApiSession, directgate_pkg_t *p
 
     if (xstrcmp(pCmdPkg->pAction, "start") && pPkg->header.nSessionId)
     {
-        const directgate_cfg_t *pCfg = pConn->pCfg;
-        XCHECK((pCfg != NULL), XAPI_DISCONNECT);
-
-        directgate_session_t *pSession = DirectGate_SessionMgr_GetOrCreate(&pConn->mgr, pApiSession, pPkg->header.nSessionId);
-        if (pSession == NULL)
+        directgate_session_t *pSession = DirectGate_SessionMgr_Find(&pConn->mgr, pPkg->header.nSessionId);
+        if (pSession == NULL || !pSession->bAuthenticated)
         {
-            xloge("Failed to allocate session slot: id(%u), fd(%d), sid(%u)",
+            xlogw("Start command rejected, session is not authenticated: id(%u), fd(%d), sid(%u)",
                 DirectGate_Conn_GetID(pConn, pApiSession),
                 DirectGate_Conn_GetFD(pConn, pApiSession),
                 pPkg->header.nSessionId);
@@ -963,15 +960,6 @@ static int DirectGate_HandleCmd(xapi_session_t *pApiSession, directgate_pkg_t *p
         }
 
         pSession->eRequestedMode = eMode;
-
-        if (!pSession->bAuthenticated)
-        {
-            xlogi("Deferring mode start until SRP completes: sid(%u), wsfd(%d), requested(%s)",
-                pSession->nSessionId, DirectGate_Session_GetWsFd(pSession), DirectGate_SessionMode_ToString(eMode));
-
-            return XAPI_CONTINUE;
-        }
-
         return DirectGate_Session_StartMode(pSession, eMode);
     }
 
@@ -1162,24 +1150,21 @@ static int DirectGate_HandleStatus(xapi_session_t *pApiSession, directgate_pkg_t
 
     if (xstrused(pStatusPkg->pStatus) && xstrcmp(pStatusPkg->pStatus, "closed"))
     {
-        if (pPkg->header.nSessionId)
+        directgate_session_t *pSession = DirectGate_SessionMgr_Find(&pConn->mgr, pPkg->header.nSessionId);
+        if (pSession == NULL || !pSession->bAuthenticated)
         {
-            directgate_session_t *pSession = DirectGate_SessionMgr_Find(&pConn->mgr, pPkg->header.nSessionId);
-            if (pSession != NULL)
-            {
-                xlogn("Remote client closed session: sid(%u), wsfd(%d)",
-                    pSession->nSessionId, DirectGate_Session_GetWsFd(pSession));
+            xlogw("Closed status rejected, session is not authenticated: id(%u), fd(%d), sid(%u)",
+                DirectGate_Conn_GetID(pConn, pApiSession),
+                DirectGate_Conn_GetFD(pConn, pApiSession),
+                pPkg->header.nSessionId);
 
-                DirectGate_SessionMgr_Remove(&pConn->mgr, pSession);
-            }
+            return XAPI_CONTINUE;
         }
-        else
-        {
-            xlogn("Remote client requested global session cleanup: id(%u), fd(%d)",
-                DirectGate_Conn_GetID(pConn, pApiSession), DirectGate_Conn_GetFD(pConn, pApiSession));
 
-            DirectGate_SessionMgr_Destroy(&pConn->mgr);
-        }
+        xlogn("Remote client closed session: sid(%u), wsfd(%d)",
+            pSession->nSessionId, DirectGate_Session_GetWsFd(pSession));
+
+        DirectGate_SessionMgr_Remove(&pConn->mgr, pSession);
     }
 
     return XAPI_CONTINUE;
@@ -1231,7 +1216,15 @@ static int DirectGate_HandleWebRTC(xapi_session_t *pApiSession, directgate_pkg_t
     XCHECK((pConn != NULL), xthrowr(XAPI_DISCONNECT, "Invalid connection"));
 
     directgate_session_t *pSession = DirectGate_SessionMgr_Find(&pConn->mgr, pPkg->header.nSessionId);
-    if (pSession == NULL) return XAPI_CONTINUE;
+    if (pSession == NULL || !pSession->bAuthenticated)
+    {
+        xlogw("WebRTC signaling rejected, session is not authenticated: id(%u), fd(%d), sid(%u)",
+            DirectGate_Conn_GetID(pConn, pApiSession),
+            DirectGate_Conn_GetFD(pConn, pApiSession),
+            pPkg->header.nSessionId);
+
+        return XAPI_CONTINUE;
+    }
 
     if (!xstrused(pWebRTC->pAction))
     {
@@ -1888,9 +1881,9 @@ static xbool_t DirectGate_RequiresEncryption(directgate_conn_t *pConn, directgat
 }
 
 static int DirectGate_HandleTransportMessage(xapi_session_t *pApiSession,
-                                         const uint8_t *pPayload,
-                                         size_t nPayload,
-                                         const char *pTransport)
+                                             const uint8_t *pPayload,
+                                             size_t nPayload,
+                                             const char *pTransport)
 {
     XCHECK((pApiSession != NULL), xthrowr(XAPI_DISCONNECT, "Invalid API session"));
     XCHECK((pPayload != NULL), XAPI_CONTINUE);
@@ -1958,6 +1951,15 @@ static int DirectGate_HandleTransportMessage(xapi_session_t *pApiSession,
     DirectGate_Package_Clear(&pkg);
     return nStatus;
 }
+
+#ifdef DIRECTGATE_TESTING
+int DirectGate_TestHandleTransportMessage(xapi_session_t *pApiSession,
+                                          const uint8_t *pPayload,
+                                          size_t nPayload)
+{
+    return DirectGate_HandleTransportMessage(pApiSession, pPayload, nPayload, "test");
+}
+#endif
 
 int DirectGate_HandleFrame(xapi_ctx_t *pCtx, xapi_session_t *pApiSession)
 {

@@ -170,10 +170,14 @@ Terminal data exchanged between agent and client is encrypted end-to-end using A
 This ensures:
 - The relay cannot access plaintext terminal data even when forwarding it
 - The relay cannot access signaling messages or the DTLS fingerprints inside the SDP
-- Only the paired agent and client can decrypt session data - the relay operates with zero knowledge
+- Only the paired agent and client can decrypt session data - the relay has zero knowledge of payload contents
 - End-to-end encryption is preserved across both the WebSocket relay path and the WebRTC P2P path
 - Session integrity is maintained end-to-end regardless of the underlying transport
 - Replay attacks, message tampering, payload modification and transport-level manipulation are mitigated
+
+**Relay-visible metadata**
+
+End-to-end encryption protects payload contents, not routing metadata. The relay necessarily sees the device ID/routing key used to pair endpoints, source IP addresses, connection timing, and traffic volume carried through the relay. This metadata exposure is inherent to the relay design; "zero knowledge" refers to terminal, file, editor, and signaling payload contents.
 
 **SRP-6a Authentication**
 
@@ -697,7 +701,7 @@ directgate-agent/
 - **End-to-end encryption**: terminal data is AES-256-SIV encrypted between agent and client; neither the relay nor any intermediary can access plaintext
 - **SRP-6a auth**: password proof exchange without ever sending the plaintext password
 - **Continuity counter**: each encrypted packet carries a monotonic counter to prevent replay attacks
-- **Zero-knowledge relay**: in relay mode, the server is cryptographically incapable of decrypting session data
+- **Zero-knowledge payloads**: in relay mode, the server is cryptographically incapable of decrypting session data, but necessarily sees routing and traffic metadata described above
 - **P2P bypass**: when the WebRTC channel is active, terminal data does not pass through the relay at all
 - Use strong passwords for SRP credentials
 - Review the `shell.user` permissions in the agent configuration - the agent grants shell access as that user

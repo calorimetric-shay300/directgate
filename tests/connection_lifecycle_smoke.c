@@ -26,6 +26,25 @@ static int dispatch(directgate_conn_t *pConn, xapi_session_t *pSession, xapi_cb_
     return DirectGate_ServiceCallback(&ctx, pSession);
 }
 
+static int send_header(directgate_conn_t *pConn, xapi_session_t *pSession, xjson_obj_t *pHeader)
+{
+    xbyte_buffer_t packet;
+    XByteBuffer_Init(&packet, XSTDNON, XFALSE);
+
+    if (pHeader == NULL || !DirectGate_Proto_Build(&packet, pHeader, NULL, 0, XFALSE))
+    {
+        XJSON_FreeObject(pHeader);
+        XByteBuffer_Clear(&packet);
+        return XSTDERR;
+    }
+
+    pSession->pSessionData = pConn;
+    int nStatus = DirectGate_TestHandleTransportMessage(pSession, packet.pData, packet.nUsed);
+    XJSON_FreeObject(pHeader);
+    XByteBuffer_Clear(&packet);
+    return nStatus;
+}
+
 int main(void)
 {
     directgate_cfg_t cfg;
@@ -47,6 +66,50 @@ int main(void)
         "initial relay connection should be attached");
     CHECK(DirectGate_SessionMgr_IsEmpty(&conn.mgr),
         "new connection manager should be empty");
+
+    CHECK(send_header(&conn, &firstRelay,
+        DirectGate_Proto_BuildCmd("start", NULL, NULL, "terminal", 50)) == XAPI_CONTINUE,
+        "pre-auth start without a session should be ignored");
+    CHECK(DirectGate_SessionMgr_Find(&conn.mgr, 50) == NULL,
+        "pre-auth start must not create a session");
+
+    directgate_session_t *pUnauth = DirectGate_SessionMgr_Create(&conn.mgr, 51);
+    CHECK(pUnauth != NULL, "unauthenticated test session should be created");
+    pUnauth->pWsSession = &firstRelay;
+
+    CHECK(send_header(&conn, &firstRelay,
+        DirectGate_Proto_BuildCmd("start", NULL, NULL, "terminal", 51)) == XAPI_CONTINUE,
+        "pre-auth start for an existing session should be ignored");
+    CHECK(pUnauth->eRequestedMode == DIRECTGATE_SESSION_MODE_NONE,
+        "pre-auth start must not prime a requested mode");
+
+    xjson_obj_t *pOffer = DirectGate_Proto_NewHeader("webrtc", 51);
+    CHECK(pOffer != NULL, "build pre-auth WebRTC offer");
+    XJSON_AddString(pOffer, "action", "offer");
+    XJSON_AddString(pOffer, "sdp", "malicious pre-auth offer");
+    CHECK(send_header(&conn, &firstRelay, pOffer) == XAPI_CONTINUE,
+        "pre-auth WebRTC offer should be ignored");
+    CHECK(pUnauth->webrtc.signalCb == NULL && pUnauth->webrtc.nPeerConnectionID < 0,
+        "pre-auth WebRTC offer must not initialize libdatachannel");
+
+    CHECK(send_header(&conn, &firstRelay,
+        DirectGate_Proto_BuildStatus("closed", 51)) == XAPI_CONTINUE,
+        "pre-auth closed status should be ignored");
+    CHECK(DirectGate_SessionMgr_Find(&conn.mgr, 51) == pUnauth,
+        "pre-auth closed status must not remove a session");
+
+    pUnauth->bAuthenticated = XTRUE;
+    CHECK(send_header(&conn, &firstRelay,
+        DirectGate_Proto_BuildStatus("closed", 0)) == XAPI_CONTINUE,
+        "session-zero closed status should be ignored");
+    CHECK(DirectGate_SessionMgr_Find(&conn.mgr, 51) == pUnauth,
+        "session-zero closed status must not perform global cleanup");
+
+    CHECK(send_header(&conn, &firstRelay,
+        DirectGate_Proto_BuildStatus("closed", 51)) == XAPI_CONTINUE,
+        "authenticated closed status should be accepted");
+    CHECK(DirectGate_SessionMgr_Find(&conn.mgr, 51) == NULL,
+        "authenticated closed status should remove its session");
 
     directgate_session_t *pSession = DirectGate_SessionMgr_Create(&conn.mgr, 1);
     CHECK(pSession != NULL, "logical session should be created");

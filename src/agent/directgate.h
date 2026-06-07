@@ -51,6 +51,12 @@ typedef struct directgate_conn_ {
     xbool_t bRoleSent;
 } directgate_conn_t;
 
+#ifdef DIRECTGATE_TESTING
+int DirectGate_TestHandleTransportMessage(xapi_session_t *pApiSession,
+                                          const uint8_t *pPayload,
+                                          size_t nPayload);
+#endif
+
 #ifdef __cplusplus
 }
 #endif
