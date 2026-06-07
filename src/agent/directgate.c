@@ -1638,7 +1638,7 @@ static int DirectGate_HandleAuth(xapi_session_t *pApiSession, directgate_pkg_t *
             return XAPI_CONTINUE;
         }
 
-        xjson_obj_t *pChal = DirectGate_Proto_BuildAuthChallenge(pCfg->auth.sSaltHex, sBHex, sNonceHex, nSessId);
+        xjson_obj_t *pChal = DirectGate_Proto_BuildAuthChallenge(pCfg->auth.sSaltHex, sBHex, sNonceHex, pCfg->auth.nSuite, nSessId);
         XCHECK((pChal != NULL), xthrowr(XAPI_DISCONNECT, "SRP: Failed to build auth challenge header"));
 
         XCHECK_CALL((DirectGate_Session_Send(pSession, pChal, NULL, 0) >= 0),

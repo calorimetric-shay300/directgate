@@ -380,7 +380,7 @@ static int DirectGate_Client_HandleAuthMsg(directgate_ctx_t *pCli, directgate_pk
 
         char sM1Hex[128];
         if (!DirectGate_SRP_ClientComputeKey(&pCli->srp, pCfg->sDeviceId, pCfg->sSecret,
-                                          pAuth->pSalt, pAuth->pB, sM1Hex, sizeof(sM1Hex)))
+                pAuth->pSalt, pAuth->pB, pAuth->nSuite, sM1Hex, sizeof(sM1Hex)))
         {
             xloge("SRP: Failed to compute proof");
             return XAPI_DISCONNECT;

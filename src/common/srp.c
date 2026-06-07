@@ -612,61 +612,6 @@ xbool_t DirectGate_SRP_CreateVerifier(const char *pPassword,
     return bOk;
 }
 
-xbool_t DirectGate_SRP_CreateVerifierCompat(const char *pPassword,
-                                            const uint8_t *pSalt, size_t nSaltLen,
-                                            char *pVerifierHex, size_t nSize)
-{
-    XCHECK((xstrused(pPassword)), XFALSE);
-    XCHECK((nSaltLen == DIRECTGATE_SRP_SALT_SIZE), XFALSE);
-    XCHECK((pVerifierHex != NULL), XFALSE);
-    XCHECK((pSalt != NULL), XFALSE);
-
-    /* x = SHA256(salt || password) — compatible with web client derivation */
-    uint8_t xHash[SHA256_DIGEST_LENGTH];
-    SHA256_CTX sha;
-    SHA256_Init(&sha);
-    SHA256_Update(&sha, pSalt, nSaltLen);
-    SHA256_Update(&sha, pPassword, strlen(pPassword));
-    SHA256_Final(xHash, &sha);
-
-    const SRP_gN *pGroup = SRP_get_default_gN("2048");
-    if (pGroup == NULL) return XFALSE;
-
-    BN_CTX *pBN = BN_CTX_new();
-    BIGNUM *pX = BN_bin2bn(xHash, sizeof(xHash), NULL);
-    BIGNUM *pV = BN_new();
-    xbool_t bOk = XFALSE;
-
-    do
-    {
-        if (pBN == NULL || pX == NULL || pV == NULL) break;
-        if (BN_mod_exp(pV, pGroup->g, pX, pGroup->N, pBN) != 1) break;
-
-        char *pHex = BN_bn2hex(pV);
-        if (pHex == NULL) break;
-
-        size_t nHex = strlen(pHex);
-        if (nHex + 1 <= nSize)
-        {
-            /* Convert to lowercase like directgate.srp */
-            for (size_t i = 0; i < nHex; i++)
-                pVerifierHex[i] = (char)tolower((unsigned char)pHex[i]);
-            pVerifierHex[nHex] = '\0';
-            bOk = XTRUE;
-        }
-
-        OPENSSL_free(pHex);
-    }
-    while (0);
-
-    OPENSSL_cleanse(xHash, sizeof(xHash));
-    BN_free(pX);
-    BN_free(pV);
-    BN_CTX_free(pBN);
-
-    return bOk;
-}
-
 /* ===== Client-side SRP-6a ===== */
 
 static size_t DirectGate_SRP_ClientGroupBytes(const directgate_srp_client_t *pClient)
@@ -813,6 +758,7 @@ xbool_t DirectGate_SRP_ClientComputeKey(directgate_srp_client_t *pClient,
                                         const char *pPassword,
                                         const char *pSaltHex,
                                         const char *pBHex,
+                                        uint32_t nSuite,
                                         char *pM1Hex,
                                         size_t nM1Size)
 {
@@ -879,19 +825,27 @@ xbool_t DirectGate_SRP_ClientComputeKey(directgate_srp_client_t *pClient,
         OPENSSL_cleanse(uHash, sizeof(uHash));
         if (pU == NULL || BN_is_zero(pU)) break;
 
-        /* x = SHA256(salt || password) — compat with web client */
         uint8_t salt[DIRECTGATE_SRP_SALT_SIZE];
         size_t nSaltLen = 0;
 
         if (!DirectGate_SRP_HexToBytes(pSaltHex, salt, sizeof(salt), &nSaltLen) ||
             nSaltLen != DIRECTGATE_SRP_SALT_SIZE) break;
 
-        uint8_t xRaw[SHA256_DIGEST_LENGTH];
-        SHA256_CTX xCtx;
-        SHA256_Init(&xCtx);
-        SHA256_Update(&xCtx, salt, nSaltLen);
-        SHA256_Update(&xCtx, pPassword, strlen(pPassword));
-        SHA256_Final(xRaw, &xCtx);
+        if (nSuite != DIRECTGATE_SRP_SUITE)
+        {
+            xloge("SRP: unsupported suite %u (version required)", nSuite);
+            OPENSSL_cleanse(salt, sizeof(salt));
+            break;
+        }
+
+        uint8_t xRaw[32];
+        if (EVP_PBE_scrypt(pPassword, strlen(pPassword), salt, nSaltLen,
+                           DIRECTGATE_SRP_SCRYPT_N, DIRECTGATE_SRP_SCRYPT_R,
+                           DIRECTGATE_SRP_SCRYPT_P, 0, xRaw, sizeof(xRaw)) != 1)
+        {
+            OPENSSL_cleanse(salt, sizeof(salt));
+            break;
+        }
 
         pX = BN_bin2bn(xRaw, sizeof(xRaw), NULL);
         OPENSSL_cleanse(xRaw, sizeof(xRaw));

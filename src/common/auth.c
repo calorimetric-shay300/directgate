@@ -104,6 +104,9 @@ xbool_t DirectGate_AuthLoad(directgate_auth_t *pAuth, xjson_obj_t *pRoot)
     const char *pVerifierHex = XJSON_GetString(XJSON_GetObject(pAuthObj, "verifier"));
     if (xstrused(pVerifierHex)) xstrncpy(pAuth->sVerifierHex, sizeof(pAuth->sVerifierHex), pVerifierHex);
 
+    /* Versioning suite will be useful in the future to track changes made to the protocol */
+    pAuth->nSuite = XJSON_GetU32(XJSON_GetObject(pAuthObj, "suite"));
+
     return XTRUE;
 }
 
@@ -117,13 +120,15 @@ xbool_t DirectGate_AuthGenerateRecord(directgate_auth_t *pAuth, const char *pPas
     if (RAND_bytes(salt, sizeof(salt)) != 1) return XFALSE;
 
     if (!DirectGate_Auth_BytesToHex(salt, sizeof(salt), pAuth->sSaltHex, sizeof(pAuth->sSaltHex)) ||
-        !DirectGate_SRP_CreateVerifierCompat(pPassword, salt, sizeof(salt),
+        !DirectGate_SRP_CreateVerifier(pPassword, salt, sizeof(salt),
         pAuth->sVerifierHex, sizeof(pAuth->sVerifierHex)))
     {
         pAuth->sSaltHex[0] = XSTR_NUL;
         pAuth->sVerifierHex[0] = XSTR_NUL;
+        pAuth->nSuite = XSTDNON;
         bOk = XFALSE;
     }
+    else pAuth->nSuite = DIRECTGATE_SRP_SUITE;
 
     OPENSSL_cleanse(salt, sizeof(salt));
     return bOk;

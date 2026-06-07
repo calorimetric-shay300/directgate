@@ -850,6 +850,8 @@ xbool_t DirectGate_SaveConfig(const directgate_cfg_t *pCfg)
                     XJSON_AddString(pSrp, "verifier", pCfg->auth.sVerifierHex);
                 if (xstrused(pCfg->auth.sSaltHex))
                     XJSON_AddString(pSrp, "salt", pCfg->auth.sSaltHex);
+                if (pCfg->auth.nSuite != XSTDNON)
+                    XJSON_AddU32(pSrp, "suite", pCfg->auth.nSuite);
             }
         }
 

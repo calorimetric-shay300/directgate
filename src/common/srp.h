@@ -34,6 +34,7 @@ extern "C" {
 #define DIRECTGATE_SRP_NONCE_SIZE      32
 #define DIRECTGATE_SRP_KEY_SIZE        32
 #define DIRECTGATE_SRP_USERNAME_SIZE   64
+#define DIRECTGATE_SRP_SUITE           1u
 
 typedef enum {
     DIRECTGATE_SRP_STATE_IDLE = 0,
@@ -85,15 +86,10 @@ xbool_t DirectGate_SRP_VerifyClientProof(directgate_srp_t *pSRP,
                                          const char *pM1Hex,
                                          char *pM2Hex, size_t nM2Size);
 
+/* Builds the SRP verifier v = g^x mod N with x = scrypt(password, salt). */
 xbool_t DirectGate_SRP_CreateVerifier(const char *pPassword,
                                       const uint8_t *pSalt, size_t nSaltLen,
                                       char *pVerifierHex, size_t nSize);
-
-/* SHA256-based verifier for web client compatibility.
- * x = SHA256(salt || password) instead of scrypt. */
-xbool_t DirectGate_SRP_CreateVerifierCompat(const char *pPassword,
-                                            const uint8_t *pSalt, size_t nSaltLen,
-                                            char *pVerifierHex, size_t nSize);
 
 /* Client-side SRP-6a functions */
 typedef struct directgate_srp_client_ {
@@ -125,6 +121,7 @@ xbool_t DirectGate_SRP_ClientComputeKey(directgate_srp_client_t *pClient,
                                         const char *pPassword,
                                         const char *pSaltHex,
                                         const char *pBHex,
+                                        uint32_t nSuite,
                                         char *pM1Hex,
                                         size_t nM1Size);
 

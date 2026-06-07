@@ -35,6 +35,7 @@ extern "C" {
 typedef struct directgate_auth_ {
     char sSaltHex[DIRECTGATE_AUTH_SALT_HEX_SIZE];
     char sVerifierHex[DIRECTGATE_AUTH_VERIFIER_HEX_SIZE];
+    uint32_t nSuite;
 } directgate_auth_t;
 
 void DirectGate_AuthInit(directgate_auth_t *pAuth);

@@ -54,8 +54,8 @@ int main(void)
     char verifierHex[1024];
     const char *pPassword = "correct horse battery staple";
     const char *pDeviceId = "dev-srp";
-    CHECK(DirectGate_SRP_CreateVerifierCompat(pPassword, salt, sizeof(salt),
-        verifierHex, sizeof(verifierHex)), "create compat verifier");
+    CHECK(DirectGate_SRP_CreateVerifier(pPassword, salt, sizeof(salt),
+        verifierHex, sizeof(verifierHex)), "create scrypt verifier");
     CHECK(strlen(verifierHex) > 0, "verifier is non-empty");
 
     directgate_srp_client_t client;
@@ -93,7 +93,8 @@ int main(void)
     char m1Hex[DIRECTGATE_SRP_KEY_SIZE * 2 + 1];
     char m2Hex[DIRECTGATE_SRP_KEY_SIZE * 2 + 1];
     CHECK(DirectGate_SRP_ClientComputeKey(&client, pDeviceId, pPassword,
-        saltHex, bHex, m1Hex, sizeof(m1Hex)), "client compute key");
+        saltHex, bHex, DIRECTGATE_SRP_SUITE, m1Hex, sizeof(m1Hex)),
+        "client compute key");
     CHECK(strlen(m1Hex) == DIRECTGATE_SRP_KEY_SIZE * 2, "M1 hex length");
     CHECK(DirectGate_SRP_VerifyClientProof(&server, m1Hex, m2Hex, sizeof(m2Hex)),
         "server verifies M1");
@@ -119,7 +120,7 @@ int main(void)
         sizeof(tamperBHex), tamperNonceHex, sizeof(tamperNonceHex)),
         "tamper server challenge");
     CHECK(DirectGate_SRP_ClientComputeKey(&client, pDeviceId, pPassword,
-        saltHex, tamperBHex, tamperM1Hex, sizeof(tamperM1Hex)),
+        saltHex, tamperBHex, DIRECTGATE_SRP_SUITE, tamperM1Hex, sizeof(tamperM1Hex)),
         "tamper client compute key");
     tamperM1Hex[0] = tamperM1Hex[0] == '0' ? '1' : '0';
     CHECK(!DirectGate_SRP_VerifyClientProof(&tamperServer, tamperM1Hex,

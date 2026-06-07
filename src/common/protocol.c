@@ -185,6 +185,7 @@ static void DirectGate_Package_ParseAuthPkg(directgate_pkg_auth_t *pPkg, xjson_o
     pPkg->pM1 = XJSON_GetString(XJSON_GetObject(pHdr, "M1"));
     pPkg->pM2 = XJSON_GetString(XJSON_GetObject(pHdr, "M2"));
     pPkg->pSalt = XJSON_GetString(XJSON_GetObject(pHdr, "salt"));
+    pPkg->nSuite = XJSON_GetU32(XJSON_GetObject(pHdr, "suite"));
     pPkg->pNonce = XJSON_GetString(XJSON_GetObject(pHdr, "nonce"));
     pPkg->pStatus = XJSON_GetString(XJSON_GetObject(pHdr, "status"));
     pPkg->pReason = XJSON_GetString(XJSON_GetObject(pHdr, "reason"));
@@ -539,11 +540,13 @@ xjson_obj_t* DirectGate_Proto_BuildAuthProof(const char *pM1, uint32_t nSessionI
 }
 
 xjson_obj_t* DirectGate_Proto_BuildAuthChallenge(const char *pSalt, const char *pB,
-                                                 const char *pNonce, uint32_t nSessionId)
+                                                 const char *pNonce, uint32_t nSuite,
+                                                 uint32_t nSessionId)
 {
     xjson_obj_t *pHeader = DirectGate_Proto_NewHeader("auth", nSessionId);
     XCHECK(pHeader, xthrowp(NULL, "Failed to create json header"));
 
+    if (nSuite) XJSON_AddU32(pHeader, "suite", nSuite);
     XJSON_AddString(pHeader, "action", "challenge");
     XJSON_AddStrIfUsed(pHeader, "salt", pSalt);
     XJSON_AddStrIfUsed(pHeader, "nonce", pNonce);

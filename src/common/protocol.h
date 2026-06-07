@@ -69,6 +69,7 @@ typedef struct directgate_pkg_auth_ {
     const char *pM1;
     const char *pM2;
     const char *pSalt;
+    uint32_t nSuite;
     /* Shared */
     const char *pNonce;
     const char *pStatus;
@@ -206,7 +207,8 @@ xjson_obj_t* DirectGate_Proto_BuildAuthHello(const char *pDeviceId, const char *
 xjson_obj_t* DirectGate_Proto_BuildAuthProof(const char *pM1, uint32_t nSessionId);
 
 xjson_obj_t* DirectGate_Proto_BuildAuthChallenge(const char *pSalt, const char *pB,
-                                                 const char *pNonce, uint32_t nSessionId);
+                                                 const char *pNonce, uint32_t nSuite,
+                                                 uint32_t nSessionId);
 
 xjson_obj_t* DirectGate_Proto_BuildAuthResult(const char *pStatus, const char *pM2,
                                               const char *pReason, uint32_t nSessionId);
