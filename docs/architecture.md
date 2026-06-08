@@ -1,4 +1,4 @@
-[← Back to README](../README.md)
+[Back to README](../README.md)
 
 # Architecture
 
@@ -20,7 +20,7 @@ After authentication, the client and agent automatically negotiate a WebRTC peer
 |    (PTY)     |              | (relay/signal)  |              | (web / CLI)  |
 +--------------+              +-----------------+              +--------------+
        ^                                                              ^
-       |                      End-to-End Encryption                   |
+       |                     End-to-End Encryption                    |
        +--------------------------------------------------------------+
 ```
 

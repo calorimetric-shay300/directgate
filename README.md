@@ -115,7 +115,7 @@ See [Security model](docs/security.md) for the full design and trust assumptions
 
 ## Installation
 
-The easiest way to install the agent is from the official DirectGate package repositories. Once added, the agent stays up to date through your normal system updates. Source and debug packages are published for every release, so you can rebuild from source and compare against the distributed binaries.
+The easiest way to install the agent is from the official DirectGate package repositories. Once added, the agent stays up to date through your normal system updates. The debugsource packages are published for every release, so you can rebuild from source and compare against the distributed binaries.
 
 Supported on Linux and macOS across x86, x86_64, ARMHF and ARM64 architectures. Windows support is coming soon.
 

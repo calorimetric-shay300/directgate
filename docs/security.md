@@ -1,4 +1,4 @@
-[← Back to README](../README.md)
+[Back to README](../README.md)
 
 # Security model
 
@@ -74,13 +74,13 @@ These operational messages do not contain terminal output, file contents, sessio
 - **Continuity counter** - each encrypted packet carries a monotonic counter to prevent replay attacks
 - **Zero-knowledge payloads** - in relay mode, the server is cryptographically incapable of decrypting session data, but necessarily sees the routing and traffic metadata described above
 - **P2P bypass** - when the WebRTC channel is active, terminal data does not pass through the relay at all
-- The agent allows to set any password you want and it is up to you to use strong passwords for SRP credentials (according to NIST, up to 15 characters is recommended)
+- The agent allows to set any password you want and it is up to you to use strong passwords for SRP credentials (according to NIST, 15+ characters is recommended)
 - Review the `shell.user` permissions in the agent configuration - the agent grants shell access as that user
 - Keep the agent updated through the package repositories (or build from source) so you receive security fixes
 
 ## Cloud side
 
-The cloud side - account management, device pairing, and the signaling/relay service - is operated by [directgate.io](https://directgate.io) and is not part of this repository. Using the hosted web client requires trust in that service, as with any SaaS platform; the agent's job is to make sure the relay never sees your plaintext.
+The cloud side - account management, device pairing, and the signaling/relay service is operated by [directgate.io](https://directgate.io) and is not part of this repository. Using the hosted web client requires trust in that service, as with any SaaS platform; the agent's job is to make sure the relay never sees your plaintext.
 
 ## Read more about security
 
