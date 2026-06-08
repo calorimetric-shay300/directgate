@@ -8,7 +8,7 @@
 
 <div align="center">
 
-# DirectGate Agent
+# DirectGate
 
 ### Your devices. Accessible everywhere. Exposed nowhere.
 
