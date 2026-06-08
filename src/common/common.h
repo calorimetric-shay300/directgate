@@ -33,6 +33,7 @@ int DirectGate_RemoveNewLine(char *pStr, size_t *pLen);
 
 xbool_t DirectGate_FindCRLF(const uint8_t *pData, size_t nSize, size_t *pOffset);
 xbool_t DirectGate_ParseI64(const uint8_t *pData, size_t nLength, int64_t *pValue);
+xbool_t DirectGate_IsAPIEndpointAllowed(const char *pUrl);
 xbool_t DirectGate_EnsurePrivateFileParent(const char *pPath);
 xbool_t DirectGate_WritePrivateFile(const char *pPath, const uint8_t *pData, size_t nSize);
 

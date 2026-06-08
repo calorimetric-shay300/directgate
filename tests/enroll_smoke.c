@@ -118,6 +118,29 @@ int main(void)
     CHECK(strcmp(sReason, "invalid-refresh-token") == 0,
         "invalid refresh token should map to invalid-refresh-token");
 
+#ifndef DIRECTGATE_DEBUG
+    directgate_cfg_t insecureCfg;
+    DirectGate_InitConfig(&insecureCfg);
+    xstrncpy(insecureCfg.sDeviceId, sizeof(insecureCfg.sDeviceId), "device-insecure");
+    xstrncpy(insecureCfg.enroll.sApiUrl, sizeof(insecureCfg.enroll.sApiUrl),
+        "http://api.example.test");
+
+    CHECK(!DirectGate_Enroll_Pair(&insecureCfg, "pairing-token"),
+        "pairing must reject an unencrypted API endpoint");
+
+    insecureCfg.enroll.bEnrolled = XTRUE;
+    xstrncpy(insecureCfg.enroll.sRefreshToken, sizeof(insecureCfg.enroll.sRefreshToken),
+        "refresh-token");
+    CHECK(DirectGate_Enroll_Refresh(&insecureCfg, sReason, sizeof(sReason)) ==
+          DIRECTGATE_ENROLL_REFRESH_TRANSIENT,
+        "refresh must reject an unencrypted API endpoint");
+
+    xstrncpy(insecureCfg.keyauth.sIdentityPubB64,
+        sizeof(insecureCfg.keyauth.sIdentityPubB64), "agent-public-key");
+    CHECK(!DirectGate_Enroll_RotateAgentKey(&insecureCfg),
+        "agent key rotation must reject an unencrypted API endpoint");
+#endif
+
     puts("enroll_smoke: OK");
     return 0;
 }

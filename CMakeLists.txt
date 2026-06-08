@@ -39,6 +39,7 @@ set(CMAKE_C_STANDARD 11)
 # ---- Security and diagnostics --------------------------------------------
 option(DIRECTGATE_ENABLE_HARDENING "Enable compiler and linker hardening" ON)
 option(DIRECTGATE_ENABLE_SANITIZERS "Enable AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
+option(DIRECTGATE_DEBUG "Enable DirectGate debug mode" OFF)
 
 if(DIRECTGATE_ENABLE_HARDENING AND CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
     set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -118,6 +119,11 @@ set(DIRECTGATE_INCLUDE_DIRS
 # ---- Build flags for our own targets --------------------------------------
 add_compile_options(-g -O2 -Wall -Wextra)
 add_compile_definitions(_XCHECK_LOG)
+
+if(DIRECTGATE_DEBUG)
+    add_compile_definitions(DIRECTGATE_DEBUG)
+endif()
+
 if(NOT APPLE AND NOT WIN32)
     add_compile_definitions(_XUTILS_USE_GNU)
     if(DIRECTGATE_ENABLE_HARDENING)

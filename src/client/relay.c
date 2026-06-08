@@ -38,6 +38,12 @@ xbool_t DirectGate_Relay_FetchEnvelope(directgate_cfg_t *pCfg)
     XCHECK((xstrused(pCfg->sApiToken)), XFALSE);
     XCHECK((xstrused(pCfg->sDeviceId)), XFALSE);
 
+    if (!DirectGate_IsAPIEndpointAllowed(pCfg->sApiUrl))
+    {
+        xloge("Invalid or unencrypted API endpoint not allowed: apiUrl(%s)", pCfg->sApiUrl);
+        return XFALSE;
+    }
+
     char sUrl[XPATH_MAX + 64];
     xstrncpyf(sUrl, sizeof(sUrl), "%s/api/v1/sessions/connect", pCfg->sApiUrl);
 

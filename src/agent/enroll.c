@@ -20,6 +20,7 @@
  */
 
 #include "includes.h"
+#include "common.h"
 #include "enroll.h"
 #include "version.h"
 
@@ -39,6 +40,17 @@ static const char* DirectGate_Enroll_GetRelayUrl(const directgate_cfg_t *pCfg)
 {
     XCHECK_NL((pCfg != NULL), NULL);
     return xstrused(pCfg->sRelayUrl) ? pCfg->sRelayUrl : "N/A";
+}
+
+static xbool_t DirectGate_Enroll_ValidateAPIEndpoint(const directgate_cfg_t *pCfg)
+{
+    XCHECK((pCfg != NULL), XFALSE);
+    if (DirectGate_IsAPIEndpointAllowed(pCfg->enroll.sApiUrl)) return XTRUE;
+
+    xloge("Invalid or unencrypted API endpoint not allowed: dev(%s), api(%s)",
+        DirectGate_Enroll_GetDeviceId(pCfg), DirectGate_Enroll_GetApiUrl(pCfg));
+
+    return XFALSE;
 }
 
 static void DirectGate_Enroll_SetReason(char *pReason, size_t nReasonSize, const char *pValue)
@@ -397,6 +409,7 @@ xbool_t DirectGate_Enroll_Pair(directgate_cfg_t *pCfg, const char *pPairingToken
     XCHECK((xstrused(pPairingToken)), XFALSE);
     XCHECK((xstrused(pCfg->sDeviceId)), XFALSE);
     XCHECK((xstrused(pCfg->enroll.sApiUrl)), XFALSE);
+    XCHECK((DirectGate_Enroll_ValidateAPIEndpoint(pCfg)), XFALSE);
 
     char sUrl[XPATH_MAX + 64];
     snprintf(sUrl, sizeof(sUrl), "%s/api/v1/devices/pair", pCfg->enroll.sApiUrl);
@@ -491,6 +504,7 @@ xbool_t DirectGate_Enroll_RotateAgentKey(directgate_cfg_t *pCfg)
     XCHECK((xstrused(pCfg->enroll.sApiUrl)), XFALSE);
     XCHECK((xstrused(pCfg->enroll.sRefreshToken)), XFALSE);
     XCHECK((xstrused(pCfg->keyauth.sIdentityPubB64)), XFALSE);
+    XCHECK((DirectGate_Enroll_ValidateAPIEndpoint(pCfg)), XFALSE);
 
     char sUrl[XPATH_MAX + 64];
     xstrncpyf(sUrl, sizeof(sUrl), "%s/api/v1/devices/rotate-agent-key", pCfg->enroll.sApiUrl);
@@ -570,6 +584,7 @@ directgate_enroll_status_t DirectGate_Enroll_Refresh(directgate_cfg_t *pCfg, cha
     XCHECK((xstrused(pCfg->sDeviceId)), DIRECTGATE_ENROLL_REFRESH_TERMINAL);
     XCHECK((xstrused(pEnroll->sApiUrl)), DIRECTGATE_ENROLL_REFRESH_TRANSIENT);
     XCHECK((xstrused(pEnroll->sRefreshToken)), DIRECTGATE_ENROLL_REFRESH_TERMINAL);
+    XCHECK((DirectGate_Enroll_ValidateAPIEndpoint(pCfg)), DIRECTGATE_ENROLL_REFRESH_TRANSIENT);
 
     char sUrl[XPATH_MAX + 64];
     xstrncpyf(sUrl, sizeof(sUrl), "%s/api/v1/devices/refresh", pEnroll->sApiUrl);

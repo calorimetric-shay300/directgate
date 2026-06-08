@@ -181,6 +181,16 @@ This ensures:
 - Session integrity is maintained end-to-end regardless of the underlying transport
 - Replay attacks, reflected packets, message tampering, payload modification and transport-level manipulation are mitigated
 
+**Unencrypted Control Messages**
+
+A limited number of operational control messages are intentionally excluded from the session-level end-to-end encryption scheme. Relay-generated messages such as errors, status updates, disconnect notifications, and verification acknowledgements cannot be end-to-end encrypted because the relay does not possess the session encryption keys.
+
+The `verify` protocol is connection-level authorization traffic exchanged directly between the agent and relay. The agent sends `verify/update` when its relay access token is refreshed, and the relay responds with `verify/ack`. Because `verify/update` contains an access token, its confidentiality depends on the TLS-protected `wss://` connection.
+
+These operational messages do not contain terminal output, file contents, session encryption keys, or other end-to-end session data. A compromised relay may forge, drop, or modify them, but their effects are limited to authorization failure, incorrect status reporting, or refuce the service. A compromised relay already has the ability to delay packets or terminate connections. 
+
+All peer-to-peer sensitive traffic sent after session authentication is protected by authenticated end-to-end encryption. The relay can forward or drop encrypted packets, but cannot decrypt, forge, or modify them without detection.
+
 **SRP-6a Authentication**
 
 Authentication uses SRP-6a (Secure Remote Password). No password is ever transmitted in any form:

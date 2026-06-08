@@ -137,6 +137,30 @@ xbool_t DirectGate_ParseI64(const uint8_t *pData, size_t nLength, int64_t *pValu
     return XTRUE;
 }
 
+xbool_t DirectGate_IsAPIEndpointAllowed(const char *pUrl)
+{
+    XCHECK_NL((xstrused(pUrl)), XFALSE);
+
+    xlink_t link;
+    XCHECK_NL((XLink_Parse(&link, pUrl) >= 0), XFALSE);
+    XCHECK_NL((xstrused(link.sAddr) && link.nPort), XFALSE);
+
+    /*
+    * In debug builds, both HTTP and HTTPS endpoints are allowed to simplify
+    * local development and testing. Production builds require HTTPS only.
+    *
+    * For transparency, the agent always reports whether it is running in a
+    * debug or production build, allowing users to verify that transport
+    * security requirements have not been relaxed.
+    */
+#ifdef DIRECTGATE_DEBUG
+    return (xstrcmp(link.sProtocol, "http") ||
+            xstrcmp(link.sProtocol, "https"));
+#else
+    return xstrcmp(link.sProtocol, "https");
+#endif
+}
+
 xbool_t DirectGate_EnsurePrivateFileParent(const char *pPath)
 {
     XCHECK((xstrused(pPath)), XFALSE);

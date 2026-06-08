@@ -86,6 +86,20 @@ int main(void)
     CHECK(!DirectGate_ParseI64((const uint8_t*)"42x", 3, &nValue),
         "invalid int64 must fail");
 
+    CHECK(DirectGate_IsAPIEndpointAllowed("https://api.example.test"),
+        "HTTPS API endpoint should be allowed");
+#ifdef DIRECTGATE_DEBUG
+    CHECK(DirectGate_IsAPIEndpointAllowed("http://127.0.0.1:5000"),
+        "HTTP API endpoint should be allowed in debug mode");
+#else
+    CHECK(!DirectGate_IsAPIEndpointAllowed("http://127.0.0.1:5000"),
+        "HTTP API endpoint must be rejected in production mode");
+#endif
+    CHECK(!DirectGate_IsAPIEndpointAllowed("wss://api.example.test"),
+        "non-HTTP API endpoint must be rejected");
+    CHECK(!DirectGate_IsAPIEndpointAllowed("https://"),
+        "API endpoint without host must be rejected");
+
     char sTrim[] = "abc \t\r\n";
     DirectGate_TrimStringRight(sTrim);
     CHECK(strcmp(sTrim, "abc") == 0, "right trim");
