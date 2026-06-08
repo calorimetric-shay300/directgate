@@ -43,7 +43,7 @@
    continuously validated in CI against OpenSSL test vectors and behavior.
    Nevertheless, preference is always given to OpenSSL's widely deployed,
    extensively reviewed, and independently audited implementation whenever it
-   is available on the target system.
+   is available on the target system. See tests/crypto_siv_openssl_smoke.c
  */
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L && !defined(LIBRESSL_VERSION_NUMBER)
 #define XSIV_HAVE_OPENSSL 1

@@ -48,22 +48,6 @@ extern "C" {
  * an additional defense-in-depth mechanism rather than a single point of
  * security.
  *
- * Two interchangeable implementations sit underneath and, for a given
- * (key, nonce, plaintext), emit byte-identical synthetic IV and ciphertext, so
- * a message encrypted by one backend decrypts under the other. Cross-backend
- * compatibility and output equivalence are verified by tests/crypto_siv_openssl_smoke.c.
- *
- *   - OpenSSL EVP AES-SIV  - preferred, used when the build links OpenSSL >= 3.0
- *                            and that build actually exposes the SIV cipher.
- *   - libxutils XAES       - portable fallback (XAES_MODE_SIV_NONCE), always compiled
- *                            in, used when OpenSSL is older or its SIV provider
- *                            is missing.
- *
- * The backend is probed once and cached. Output layout is
- * `nonce(16) || SIV_tag(16) || ciphertext`, i.e. 32 bytes longer than the
- * plaintext. The nonce travels with the ciphertext; the receiver needs no
- * out-of-band state.
- *
  * @param pCmacKey  S2V (MAC) key, nKeyBits/8 bytes.
  * @param pCtrKey   CTR key, nKeyBits/8 bytes.
  * @param nKeyBits  AES key size in bits: 128, 192 or 256.

@@ -2475,6 +2475,7 @@ int main(int argc, char* argv[])
 
     xlogn("Starting directgate agent: v%s", DirectGate_GetVersionLong());
     xlogi("libxutils version: %s", XUtils_Version());
+    xlogi("WebRTC library: v%s", RTC_VERSION);
 
     /* Drop to the configured shell user before opening the relay or any PTY,
        so the file manager runs with the same privilege as the terminal. */
