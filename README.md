@@ -536,11 +536,11 @@ Most of these fields are populated for you during [pairing](#pairing-with-your-a
 
 ### Systemd Hardening
 
-By default, DirectGate installs its systemd service with `NoNewPrivileges=false`. This is required to allow privilege escalation mechanisms such as `sudo` to function correctly within remote terminal sessions.
+By default, DirectGate installs its systemd service with `PrivateTmp=true`, which gives the service isolated `/tmp` and `/var/tmp` directories. It also uses `NoNewPrivileges=false`, which is basically required to make `sudo` work correctly within remote terminal sessions (similar to how SSH works).
 
 This default is a deliberate tradeoff between functionality and isolation. Although `NoNewPrivileges` is disabled, the agent does not execute user sessions with elevated privileges by default and drops privileges to the configured account before handling interactive workloads.
 
-If you do not require privilege escalation from remote sessions, you may set:
+If you do not require `sudo` capabilities from remote sessions, you may set:
 
 ```ini
 NoNewPrivileges=true
@@ -548,7 +548,7 @@ NoNewPrivileges=true
 
 for additional hardening.
 
-Administrators are also encouraged to apply further systemd sandboxing restrictions where appropriate, such as `PrivateTmp`, filesystem restrictions, capability filtering, address family restrictions, and other hardening directives based on their deployment requirements.
+Administrators are also encouraged to apply further systemd sandboxing restrictions where appropriate, such as filesystem restrictions, capability filtering, address family restrictions, and other hardening directives based on their deployment requirements.
 
 As with any remote access software, the appropriate hardening profile depends on the balance between functionality and security required by your environment.
 

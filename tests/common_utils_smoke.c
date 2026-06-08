@@ -1,3 +1,4 @@
+#include <dirent.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,6 +15,39 @@
             return 1; \
         } \
     } while (0)
+
+static int read_file(const char *pPath, char *pOut, size_t nOutSize)
+{
+    FILE *pFile = fopen(pPath, "rb");
+    if (pFile == NULL) return 0;
+
+    size_t nRead = fread(pOut, 1, nOutSize - 1, pFile);
+    int nOk = !ferror(pFile) && feof(pFile);
+    pOut[nRead] = '\0';
+    fclose(pFile);
+    return nOk;
+}
+
+static int has_entry_prefix(const char *pDirPath, const char *pPrefix)
+{
+    DIR *pDir = opendir(pDirPath);
+    if (pDir == NULL) return 0;
+
+    size_t nPrefixLen = strlen(pPrefix);
+    int nFound = 0;
+    struct dirent *pEntry = NULL;
+    while ((pEntry = readdir(pDir)) != NULL)
+    {
+        if (strncmp(pEntry->d_name, pPrefix, nPrefixLen) == 0)
+        {
+            nFound = 1;
+            break;
+        }
+    }
+
+    closedir(pDir);
+    return nFound;
+}
 
 int main(void)
 {
@@ -75,6 +109,41 @@ int main(void)
     CHECK((st.st_mode & 0777) == 0700, "private dir mode");
     CHECK(stat(sPrivateFile, &st) == 0, "stat private file");
     CHECK((st.st_mode & 0777) == 0600, "private file mode");
+
+    ino_t nOriginalInode = st.st_ino;
+    const uint8_t sUpdatedSecret[] = "updated-secret";
+    CHECK(DirectGate_WritePrivateFile(sPrivateFile, sUpdatedSecret, sizeof(sUpdatedSecret) - 1),
+        "atomically replace private file");
+    CHECK(stat(sPrivateFile, &st) == 0, "stat replaced private file");
+    CHECK(st.st_ino != nOriginalInode,
+        "private file replacement must rename a new inode");
+    CHECK((st.st_mode & 0777) == 0600, "replaced private file mode");
+
+    char sSavedSecret[64];
+    CHECK(read_file(sPrivateFile, sSavedSecret, sizeof(sSavedSecret)),
+        "read replaced private file");
+    CHECK(strcmp(sSavedSecret, (const char*)sUpdatedSecret) == 0,
+        "replaced private file content");
+    CHECK(!has_entry_prefix(sPrivateDir, "config.json.tmp."),
+        "atomic private file write must not leave temp files");
+
+    char sLinkTarget[XPATH_MAX];
+    char sLinkPath[XPATH_MAX];
+    snprintf(sLinkTarget, sizeof(sLinkTarget), "%s/private/link-target.json", sRoot);
+    snprintf(sLinkPath, sizeof(sLinkPath), "%s/private/config-link.json", sRoot);
+    CHECK(DirectGate_WritePrivateFile(sLinkTarget, sSecret, sizeof(sSecret) - 1),
+        "write private symlink target");
+    CHECK(symlink(sLinkTarget, sLinkPath) == 0, "create private file symlink");
+    CHECK(!DirectGate_WritePrivateFile(sLinkPath, sUpdatedSecret, sizeof(sUpdatedSecret) - 1),
+        "private file writer must reject symlink target");
+    CHECK(read_file(sLinkTarget, sSavedSecret, sizeof(sSavedSecret)),
+        "read private symlink target");
+    CHECK(strcmp(sSavedSecret, (const char*)sSecret) == 0,
+        "rejected symlink write must preserve target content");
+    CHECK(!has_entry_prefix(sPrivateDir, "config-link.json.tmp."),
+        "rejected symlink write must not leave temp files");
+    CHECK(unlink(sLinkPath) == 0, "cleanup private file symlink");
+    CHECK(unlink(sLinkTarget) == 0, "cleanup private symlink target");
 
     CHECK(unlink(sPrivateFile) == 0, "cleanup private file");
     CHECK(rmdir(sPrivateDir) == 0, "cleanup private dir");

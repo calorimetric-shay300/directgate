@@ -183,35 +183,37 @@ xbool_t DirectGate_WritePrivateFile(const char *pPath, const uint8_t *pData, siz
     XCHECK((pData != NULL), XFALSE);
     XCHECK((nSize > 0), XFALSE);
 
+    struct stat target;
+    if (xstat(pPath, &target) == XSTDOK)
+    {
+        if (S_ISLNK(target.st_mode))
+            return XFALSE;
+    }
+    else if (errno != ENOENT)
+    {
+        xloge("Failed to stat file: path(%s), errno(%d)", pPath, errno);
+        return XFALSE;
+    }
+
     if (!DirectGate_EnsurePrivateFileParent(pPath))
         return XFALSE;
 
-    int nFlags = O_WRONLY | O_CREAT;
-#ifdef O_CLOEXEC
-    nFlags |= O_CLOEXEC;
-#endif
-#ifdef O_NOFOLLOW
-    nFlags |= O_NOFOLLOW;
-#endif
+    char sTempPath[XPATH_MAX];
+    int nTempLen = snprintf(sTempPath, sizeof(sTempPath), "%s.tmp.XXXXXX", pPath);
+    if (nTempLen < 0 || (size_t)nTempLen >= sizeof(sTempPath)) return XFALSE;
 
-    int nFd = open(pPath, nFlags, 0600);
+    /* mkstemp automatically creates file with 0600 permissions.
+       Then we anyway set it to 0600 for defense in depth. */
+    int nFd = mkstemp(sTempPath);
     if (nFd < 0) return XFALSE;
 
-#ifndef O_CLOEXEC
     int nFdFlags = fcntl(nFd, F_GETFD);
-    if (nFdFlags >= 0)
-        (void)fcntl(nFd, F_SETFD, nFdFlags | FD_CLOEXEC);
-#endif
+    if (nFdFlags >= 0) (void)fcntl(nFd, F_SETFD, nFdFlags | FD_CLOEXEC);
 
     if (fchmod(nFd, 0600) != 0)
     {
         close(nFd);
-        return XFALSE;
-    }
-
-    if (ftruncate(nFd, 0) != 0)
-    {
-        close(nFd);
+        unlink(sTempPath);
         return XFALSE;
     }
 
@@ -224,21 +226,40 @@ xbool_t DirectGate_WritePrivateFile(const char *pPath, const uint8_t *pData, siz
         if (nRet <= 0)
         {
             close(nFd);
+            unlink(sTempPath);
             return XFALSE;
         }
 
         nWritten += (size_t)nRet;
     }
 
-    if (close(nFd) != 0)
+    while (fsync(nFd) != 0)
+    {
+        if (errno == EINTR) continue;
+
+        close(nFd);
+        unlink(sTempPath);
         return XFALSE;
+    }
+
+    if (close(nFd) != 0)
+    {
+        unlink(sTempPath);
+        return XFALSE;
+    }
+
+    if (rename(sTempPath, pPath) != 0)
+    {
+        unlink(sTempPath);
+        return XFALSE;
+    }
 
     return XTRUE;
 }
 
 
 xbool_t DirectGate_PromptString(const char *pLabel, char *pOut, size_t nSize,
-                            const char *pDefault, xbool_t bRequired)
+                                const char *pDefault, xbool_t bRequired)
 {
     XCHECK((pLabel != NULL), XFALSE);
     XCHECK((pOut != NULL), XFALSE);

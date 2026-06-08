@@ -13,6 +13,7 @@ ExecStartPre=/bin/sh -c 'test -f "<home>/.config/directgate/agent.json"'
 ExecStart=<exec>
 Restart=on-failure
 RestartSec=2
+PrivateTmp=true
 NoNewPrivileges=false
 
 [Install]
