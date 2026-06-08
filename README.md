@@ -1,10 +1,10 @@
 ![C](https://img.shields.io/badge/language-C-blue)
-[![GPLv3 License](https://img.shields.io/badge/License-GPLv3-brightgreen.svg?)](https://github.com/directgate/directgate-agent/blob/main/LICENSE)
-[![Linux](https://github.com/directgate/directgate-agent/actions/workflows/linux.yml/badge.svg)](https://github.com/directgate/directgate-agent/actions/workflows/linux.yml)
-[![MacOS](https://github.com/directgate/directgate-agent/actions/workflows/macos.yml/badge.svg)](https://github.com/directgate/directgate-agent/actions/workflows/macos.yml)
-[![Valgrind](https://github.com/directgate/directgate-agent/actions/workflows/tests.yml/badge.svg)](https://github.com/directgate/directgate-agent/actions/workflows/tests.yml)
-[![Sanitizers](https://github.com/directgate/directgate-agent/actions/workflows/sanitizers.yml/badge.svg)](https://github.com/directgate/directgate-agent/actions/workflows/sanitizers.yml)
-[![CodeQL](https://github.com/directgate/directgate-agent/actions/workflows/codeql.yml/badge.svg)](https://github.com/directgate/directgate-agent/actions/workflows/codeql.yml)
+[![GPLv3 License](https://img.shields.io/badge/License-GPLv3-brightgreen.svg?)](https://github.com/directgate/directgate/blob/main/LICENSE)
+[![Linux](https://github.com/directgate/directgate/actions/workflows/linux.yml/badge.svg)](https://github.com/directgate/directgate/actions/workflows/linux.yml)
+[![MacOS](https://github.com/directgate/directgate/actions/workflows/macos.yml/badge.svg)](https://github.com/directgate/directgate/actions/workflows/macos.yml)
+[![Valgrind](https://github.com/directgate/directgate/actions/workflows/tests.yml/badge.svg)](https://github.com/directgate/directgate/actions/workflows/tests.yml)
+[![Sanitizers](https://github.com/directgate/directgate/actions/workflows/sanitizers.yml/badge.svg)](https://github.com/directgate/directgate/actions/workflows/sanitizers.yml)
+[![CodeQL](https://github.com/directgate/directgate/actions/workflows/codeql.yml/badge.svg)](https://github.com/directgate/directgate/actions/workflows/codeql.yml)
 
 <div align="center">
 
@@ -166,7 +166,7 @@ brew install directgate
 **From source** - if your platform isn't listed above, or you want to build and audit the agent yourself, see [Building from source](docs/building.md). The short version:
 
 ```bash
-git clone --recurse-submodules https://github.com/directgate/directgate-agent.git
+git clone --recurse-submodules https://github.com/directgate/directgate.git
 cd directgate-agent
 cmake -B build && cmake --build build -j
 sudo make -C build install

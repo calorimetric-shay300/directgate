@@ -10,7 +10,7 @@ pull requests, or discussions.**
 Instead, use one of the following private channels:
 
 - **GitHub Security Advisories** (preferred) - go to the
-  [Security tab](https://github.com/directgate/directgate-agent/security/advisories/new)
+  [Security tab](https://github.com/directgate/directgate/security/advisories/new)
   of this repository and click *Report a vulnerability*.
 - **Email** - [security@directgate.io](mailto:security@directgate.io).
 

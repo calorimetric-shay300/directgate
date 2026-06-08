@@ -1,6 +1,6 @@
 [
   {
-    "directory": "/opt/directgate/directgate-agent",
+    "directory": "/opt/directgate/directgate",
     "file": "src/agent/directgate.c",
     "arguments": [
       "cc",

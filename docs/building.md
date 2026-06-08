@@ -18,7 +18,7 @@ If your platform is not covered by the [package repositories](../README.md#insta
 
 ```bash
 # Clone with submodules (or run the submodule command after a plain clone)
-git clone --recurse-submodules https://github.com/directgate/directgate-agent.git
+git clone --recurse-submodules https://github.com/directgate/directgate.git
 cd directgate-agent
 git submodule update --init --recursive   # only needed if you cloned without --recurse-submodules
 
