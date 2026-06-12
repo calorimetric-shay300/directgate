@@ -34,7 +34,7 @@ extern int optopt;
 #define DIRECTGATE_AGENT_CONFIG     ".config/directgate/agent.json"
 #define DIRECTGATE_RELAY_URL        "wss://relay1.directgate.io/websock"
 #define DIRECTGATE_API_URL          "https://api.directgate.io"
-#define DIRECTGATE_HOST_OPTSTRING   "a:c:d:g:l:t:v:w:e1:i1:r1:s1:v:h1"
+#define DIRECTGATE_HOST_OPTSTRING   "a:c:d:g:l:t:v:u:e1:i1:r1:s1:v:w1:h1"
 
 static xbool_t DirectGate_EnsureagentIdentity(directgate_cfg_t *pCfg);
 
@@ -57,7 +57,7 @@ void DirectGate_DisplayUsage(const char *pName)
     printf("Usage: %s [options]\n", pName);
     printf("Options are:\n");
     printf("  -d <id>              # Device ID for this agent\n");
-    printf("  -w <url>             # WebSocket relay URL\n");
+    printf("  -u <url>             # WebSocket relay URL\n");
     printf("  -c <path>            # Config JSON path\n");
     printf("  -l <path>            # Log directory path\n");
     printf("  -t <token>           # Pairing token for enrollment\n");
@@ -65,6 +65,7 @@ void DirectGate_DisplayUsage(const char *pName)
     printf("  -g <path>            # Generate a client key file and exit\n");
     printf("  -a <path>            # Authorize this agent against an existing key file and exit\n");
     printf("  -r                   # Rotate agent identity keypair and push new pub to API, then exit\n");
+    printf("  -w                   # Enable WebRTC verbose logging (works with -v)\n");
     printf("  -i                   # Init config and exit\n");
     printf("  -e                   # Enroll device and exit\n");
     printf("  -s                   # Init SRP verifier and exit\n");
@@ -684,8 +685,9 @@ void DirectGate_InitConfig(directgate_cfg_t *pCfg)
 
     pCfg->nKAInterval = DIRECTGATE_KA_INTERVAL_SEC;
     pCfg->bRotateAgentKey = XFALSE;
-    pCfg->bAllowTCP = XFALSE;
+    pCfg->bWebRTCVerbose = XFALSE;
     pCfg->nVerbose = XSTDNON;
+    pCfg->bAllowTCP = XFALSE;
     pCfg->bSetSRP = XFALSE;
     pCfg->bEnroll = XFALSE;
     pCfg->bHelp = XFALSE;
@@ -1067,7 +1069,7 @@ xbool_t DirectGate_ParseArgs(directgate_cfg_t *pCfg, int argc, char *argv[])
     {
         switch (nChar)
         {
-            case 'w':
+            case 'u':
                 xstrncpy(pCfg->sRelayUrl, sizeof(pCfg->sRelayUrl), optarg);
                 break;
             case 'd':
@@ -1089,6 +1091,9 @@ xbool_t DirectGate_ParseArgs(directgate_cfg_t *pCfg, int argc, char *argv[])
                 break;
             case 'v':
                 pCfg->nVerbose = (uint16_t)atoi(optarg);
+                break;
+            case 'w':
+                pCfg->bWebRTCVerbose = XTRUE;
                 break;
             case 'e':
                 pCfg->bEnroll = XTRUE;
@@ -1123,7 +1128,7 @@ xbool_t DirectGate_ParseArgs(directgate_cfg_t *pCfg, int argc, char *argv[])
         if (pCfg->nVerbose > 3) pCfg->log.nFlags |= XLOG_DEBUG;
         if (pCfg->nVerbose > 4) pCfg->log.nFlags |= XLOG_TRACE;
 
-        if (pCfg->nVerbose > 1) pCfg->log.bLogRTC = XTRUE;
+        pCfg->log.bLogRTC = pCfg->bWebRTCVerbose;
         pCfg->log.nRTCLevel = DirectGate_LogGetRTCLevel(&pCfg->log);
 
         xlog_setfl(pCfg->log.nFlags);

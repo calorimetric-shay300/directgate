@@ -45,6 +45,39 @@ option(DIRECTGATE_ENABLE_HARDENING "Enable compiler and linker hardening" ON)
 option(DIRECTGATE_ENABLE_SANITIZERS "Enable AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
 option(DIRECTGATE_DEBUG "Enable DirectGate debug mode" OFF)
 
+# ---- Build tag -------------------------------------------------------------
+# Identifies the build channel/architecture and is appended to the agent
+# version string, e.g. 1.0.19-5-amd64_deb. Package builds pass it explicitly
+# (-DDIRECTGATE_BUILD_TAG=amd64_deb); source builds fall back to <arch>_<os>
+# (e.g. x86_64_linux, arm64_macos). Must stay a single [a-z][a-z0-9_]* token:
+# the API parses the version as "MAJOR.MINOR.BUILD-PKG[-TAG]" and a tag that
+# starts with a digit would be ambiguous against the numeric PKG part.
+set(DIRECTGATE_BUILD_TAG "" CACHE STRING "Build channel tag appended to the agent version (e.g. amd64_deb)")
+if(NOT DIRECTGATE_BUILD_TAG)
+    string(TOLOWER "${CMAKE_SYSTEM_PROCESSOR}" _dg_tag_arch)
+    if(_dg_tag_arch STREQUAL "aarch64")
+        set(_dg_tag_arch "arm64")
+    endif()
+    string(TOLOWER "${CMAKE_SYSTEM_NAME}" _dg_tag_os)
+    if(_dg_tag_os STREQUAL "darwin")
+        set(_dg_tag_os "macos")
+    endif()
+    string(REGEX REPLACE "[^a-z0-9_]" "_" _dg_tag_arch "${_dg_tag_arch}")
+    string(REGEX REPLACE "[^a-z0-9_]" "_" _dg_tag_os "${_dg_tag_os}")
+    set(DIRECTGATE_BUILD_TAG "${_dg_tag_arch}_${_dg_tag_os}")
+endif()
+if(NOT DIRECTGATE_BUILD_TAG MATCHES "^[a-z][a-z0-9_]*$")
+    message(FATAL_ERROR "DIRECTGATE_BUILD_TAG must match [a-z][a-z0-9_]*, got: ${DIRECTGATE_BUILD_TAG}")
+endif()
+# Cap the length: the API truncates stored agent versions at 96 chars and the
+# enroll request bodies are built in fixed 4 KiB buffers, so an oversized tag
+# would fail at runtime in confusing ways instead of here.
+string(LENGTH "${DIRECTGATE_BUILD_TAG}" _dg_tag_len)
+if(_dg_tag_len GREATER 32)
+    message(FATAL_ERROR "DIRECTGATE_BUILD_TAG must be at most 32 characters, got ${_dg_tag_len}: ${DIRECTGATE_BUILD_TAG}")
+endif()
+message(STATUS "DirectGate build tag: ${DIRECTGATE_BUILD_TAG}")
+
 if(DIRECTGATE_ENABLE_HARDENING AND CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
     set(CMAKE_POSITION_INDEPENDENT_CODE ON)
     include(CheckPIESupported)
@@ -183,6 +216,8 @@ add_library(xcommon STATIC
     ${COMMON_DIR}/webrtc.c
     ${COMMON_DIR}/websock.c)
 target_include_directories(xcommon PUBLIC ${DIRECTGATE_INCLUDE_DIRS})
+# Only version.c consumes the tag; PRIVATE keeps it out of dependents' flags.
+target_compile_definitions(xcommon PRIVATE DIRECTGATE_BUILD_TAG="${DIRECTGATE_BUILD_TAG}")
 target_link_libraries(xcommon PUBLIC
     xutils
     LibDataChannel::LibDataChannel

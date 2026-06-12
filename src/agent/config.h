@@ -87,6 +87,7 @@ typedef struct directgate_cfg_ {
     uint8_t nIceSrvCount;
     uint16_t nKAInterval;
     uint16_t nVerbose;
+    xbool_t bWebRTCVerbose;
     xbool_t bSetSRP;
     xbool_t bGenKey;
     xbool_t bEnrollKey;

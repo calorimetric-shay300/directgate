@@ -89,7 +89,7 @@ If built from source without installing, the binary is at `build/directgate`.
 Usage: directgate [options]
 Options are:
   -d <id>       Device ID for this agent
-  -w <url>      WebSocket relay URL
+  -u <url>      WebSocket relay URL
   -c <path>     Config JSON path
   -l <path>     Log directory path
   -t <token>    Pairing token for enrollment
@@ -97,6 +97,7 @@ Options are:
   -g <path>     Generate a client key file and exit
   -a <path>     Authorize this agent against an existing key file and exit
   -r            Rotate agent identity keypair, push new pub to API, and exit
+  -w            Enable WebRTC verbose logging (works with -v)
   -i            Init config and exit
   -e            Enroll device and exit
   -s            Init SRP verifier and exit

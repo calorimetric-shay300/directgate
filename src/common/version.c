@@ -22,12 +22,23 @@
 #include "includes.h"
 #include "version.h"
 
+/* Build channel tag baked in at configure time (CMake DIRECTGATE_BUILD_TAG,
+ * e.g. amd64_deb, x86_64_rpm, brew_silicon). Appended as "-<tag>", producing
+ * versions like 1.0.19-5-amd64_deb. Builds without the definition keep the
+ * plain 1.0.19-5 format, which the API accepts as well. */
+#ifdef DIRECTGATE_BUILD_TAG
+#define DIRECTGATE_VERSION_TAG_SUFFIX "-" DIRECTGATE_BUILD_TAG
+#else
+#define DIRECTGATE_VERSION_TAG_SUFFIX ""
+#endif
+
 const char* DirectGate_GetVersionShort(void)
 {
     return XSTRFY(DIRECTGATE_VERSION_MAJOR) "."
            XSTRFY(DIRECTGATE_VERSION_MINOR) "."
            XSTRFY(DIRECTGATE_VERSION_BUILD) "-"
-           XSTRFY(DIRECTGATE_VERSION_PKG);
+           XSTRFY(DIRECTGATE_VERSION_PKG)
+           DIRECTGATE_VERSION_TAG_SUFFIX;
 }
 
 const char* DirectGate_GetVersionLong(void)
@@ -35,6 +46,7 @@ const char* DirectGate_GetVersionLong(void)
     return XSTRFY(DIRECTGATE_VERSION_MAJOR) "."
            XSTRFY(DIRECTGATE_VERSION_MINOR) " build "
            XSTRFY(DIRECTGATE_VERSION_BUILD) "-"
-           XSTRFY(DIRECTGATE_VERSION_PKG) " (" __DATE__ ")";
+           XSTRFY(DIRECTGATE_VERSION_PKG)
+           DIRECTGATE_VERSION_TAG_SUFFIX " (" __DATE__ ")";
 }
 
