@@ -167,7 +167,9 @@ brew install directgate
 
 The Windows installer is coming soon. Until then, see [Building for Windows](docs/windows.md) for building the agent from source, plus service installation and Windows-specific notes.
 
-**From source** - if your platform isn't listed above, or you want to build and audit the agent yourself, see [Building from source](docs/building.md). The short version:
+**From source**
+
+If your platform isn't listed above, or you want to build and audit the agent yourself, see [Building from source](docs/building.md). The short version:
 
 ```bash
 git clone --recurse-submodules https://github.com/directgate/directgate.git
