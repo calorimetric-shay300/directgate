@@ -135,6 +135,11 @@ int main(void)
     char sNestedTarget[512];
     char sTempPath[512];
     char sTempPath2[512];
+    char sCommitTemp[512];
+    char sCommitTarget[512];
+    char sPortableDir[512];
+    char sPortableChild[512];
+    char sPortableFile[512];
     char sResolved[512];
     char sRead[64];
 
@@ -148,10 +153,15 @@ int main(void)
     snprintf(sDirCopy, sizeof(sDirCopy), "%s/dir-copy", sRoot);
     snprintf(sDirCopyChild, sizeof(sDirCopyChild), "%s/dir-copy/child.txt", sRoot);
     snprintf(sNestedTarget, sizeof(sNestedTarget), "%s/dir/nested", sRoot);
+    snprintf(sCommitTemp, sizeof(sCommitTemp), "%s/upload.part", sRoot);
+    snprintf(sCommitTarget, sizeof(sCommitTarget), "%s/editor-save.txt", sRoot);
+    snprintf(sPortableDir, sizeof(sPortableDir), "%s/windows-portable-dir", sRoot);
+    snprintf(sPortableChild, sizeof(sPortableChild), "%s/windows-portable-dir/child.txt", sRoot);
+    snprintf(sPortableFile, sizeof(sPortableFile), "%s/windows-portable-file.txt", sRoot);
 
     CHECK(write_file(sFile, "report-data"), "write source file");
     CHECK(write_file(sHidden, "secret"), "write hidden file");
-    CHECK(mkdir(sDir, 0755) == 0, "mkdir source dir");
+    CHECK(XDir_Create(sDir, 0755) > 0, "mkdir source dir");
     CHECK(write_file(sDirChild, "child-data"), "write source dir child");
 
     CHECK(DirectGate_Files_ResolvePasteTarget(sResolved, sizeof(sResolved), sFileCopy) == XSTDOK,
@@ -203,6 +213,109 @@ int main(void)
         "build second upload temp path");
     CHECK(strcmp(sTempPath, sTempPath2) != 0,
         "upload temp path should include random material");
+
+    CHECK(write_file(sCommitTemp, "new-data"), "write no-replace commit source");
+    CHECK(write_file(sCommitTarget, "old-data"), "write no-replace commit target");
+    errno = 0;
+    CHECK(DirectGate_Files_RenameNoReplace(sCommitTemp, sCommitTarget) == XSTDERR,
+        "no-replace commit should reject existing target");
+    CHECK(errno == EEXIST, "no-replace commit should report EEXIST");
+    CHECK(read_file(sCommitTemp, sRead, sizeof(sRead)), "read rejected commit source");
+    CHECK(strcmp(sRead, "new-data") == 0, "rejected commit should preserve source");
+    CHECK(read_file(sCommitTarget, sRead, sizeof(sRead)), "read rejected commit target");
+    CHECK(strcmp(sRead, "old-data") == 0, "rejected commit should preserve target");
+
+    CHECK(DirectGate_Files_RenameReplace(sCommitTemp, sCommitTarget) == XSTDOK,
+        "forced editor save should replace existing target");
+    CHECK(access(sCommitTemp, F_OK) != 0, "replace commit should consume source");
+    CHECK(read_file(sCommitTarget, sRead, sizeof(sRead)), "read replaced commit target");
+    CHECK(strcmp(sRead, "new-data") == 0, "replace commit should install source bytes");
+
+    xstat_t commitStat;
+    char sCommitPerm[XPERM_LEN + 1];
+    CHECK(xstat(sCommitTarget, &commitStat) == XSTDOK, "stat replaced commit target");
+    memset(sCommitPerm, '?', sizeof(sCommitPerm));
+    CHECK(XPath_ModeToPerm(sCommitPerm, sizeof(sCommitPerm), commitStat.st_mode) == XPERM_LEN,
+        "format replaced target permissions");
+    CHECK(strlen(sCommitPerm) == XPERM_LEN,
+        "formatted permissions should always be complete");
+    CHECK(strchr(sCommitPerm, '?') == NULL,
+        "formatted permissions should initialize every character");
+    CHECK(XPath_SetPerm(sCommitTarget, sCommitPerm) == XSTDOK,
+        "restore replaced target permissions");
+    CHECK(write_file(sCommitTarget, "second-save"),
+        "restored target should remain writable for repeated editor save");
+
+    xstat_t beforeInvalidPerm;
+    xstat_t afterInvalidPerm;
+    CHECK(xstat(sCommitTarget, &beforeInvalidPerm) == XSTDOK,
+        "stat target before invalid permission");
+    CHECK(XPath_SetPerm(sCommitTarget, "rw") == XSTDERR,
+        "invalid permission string should be rejected");
+    CHECK(xstat(sCommitTarget, &afterInvalidPerm) == XSTDOK,
+        "stat target after invalid permission");
+    CHECK(beforeInvalidPerm.st_mode == afterInvalidPerm.st_mode,
+        "invalid permission string should preserve target mode");
+    CHECK(write_file(sCommitTarget, "third-save"),
+        "invalid permission string should not make target read-only");
+
+    CHECK(XDir_Create(sPortableDir, 0755) > 0,
+        "create destination for portable Windows permissions");
+    CHECK(XPath_SetPerm(sPortableDir, "rwx------") == XSTDOK,
+        "apply portable Windows directory permissions");
+    CHECK(write_file(sPortableChild, "portable"),
+        "portable Windows directory permissions should allow child creation");
+    xstat_t portableStat;
+    CHECK(xstat(sPortableDir, &portableStat) == XSTDOK &&
+        (portableStat.st_mode & 0777) == 0700,
+        "portable Windows directory permissions should be 0700");
+    CHECK(write_file(sPortableFile, "portable"),
+        "create portable Windows file destination");
+    CHECK(XPath_SetPerm(sPortableFile, "rw-------") == XSTDOK,
+        "apply portable Windows file permissions");
+    CHECK(xstat(sPortableFile, &portableStat) == XSTDOK &&
+        (portableStat.st_mode & 0777) == 0600,
+        "portable Windows file permissions should be 0600");
+
+#ifdef _WIN32
+    char sWinPerm[XPERM_LEN + 1];
+    char sWinMode[4];
+
+    CHECK(XPath_ModeToPerm(sWinPerm, sizeof(sWinPerm),
+        _S_IFDIR | _S_IREAD | _S_IWRITE) == XPERM_LEN &&
+        strcmp(sWinPerm, "rwx------") == 0,
+        "writable Windows directory should project to portable 0700");
+    CHECK(XPath_ModeToChmod(sWinMode, sizeof(sWinMode),
+        _S_IFDIR | _S_IREAD | _S_IWRITE) == 3 &&
+        strcmp(sWinMode, "700") == 0,
+        "writable Windows directory chmod projection");
+
+    CHECK(XPath_ModeToPerm(sWinPerm, sizeof(sWinPerm),
+        _S_IFREG | _S_IREAD | _S_IWRITE) == XPERM_LEN &&
+        strcmp(sWinPerm, "rw-------") == 0,
+        "writable Windows file should project to portable 0600");
+    CHECK(XPath_ModeToChmod(sWinMode, sizeof(sWinMode),
+        _S_IFREG | _S_IREAD | _S_IWRITE) == 3 &&
+        strcmp(sWinMode, "600") == 0,
+        "writable Windows file chmod projection");
+
+    CHECK(XPath_ModeToPerm(sWinPerm, sizeof(sWinPerm),
+        _S_IFDIR | _S_IREAD) == XPERM_LEN &&
+        strcmp(sWinPerm, "rwx------") == 0,
+        "Windows directory attributes should still project to writable 0700");
+    CHECK(XPath_ModeToChmod(sWinMode, sizeof(sWinMode),
+        _S_IFDIR | _S_IREAD) == 3 &&
+        strcmp(sWinMode, "700") == 0,
+        "Windows directory attributes chmod projection");
+    CHECK(XPath_ModeToPerm(sWinPerm, sizeof(sWinPerm),
+        _S_IFREG | _S_IREAD) == XPERM_LEN &&
+        strcmp(sWinPerm, "r--------") == 0,
+        "read-only Windows file should project to portable 0400");
+    CHECK(XPath_ModeToChmod(sWinMode, sizeof(sWinMode),
+        _S_IFREG | _S_IREAD) == 3 &&
+        strcmp(sWinMode, "400") == 0,
+        "read-only Windows file chmod projection");
+#endif
 
     CHECK(DirectGate_Files_Delete(sDirCopy, XTRUE) == XSTDOK,
         "cleanup copied directory");

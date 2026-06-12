@@ -21,6 +21,7 @@ endfunction()
 # Tests that only need libxcommon.
 foreach(test
         base64_smoke
+        collections_smoke
         common_utils_smoke
         protocol_smoke
         crypto_smoke
@@ -30,6 +31,15 @@ foreach(test
         api_invalid_role_smoke
         keyauth_smoke
         files_static_smoke
+        auth_logger_smoke
+        hash_vectors_smoke
+        json_smoke
+        proto_crypt_smoke
+        protocol_builders_smoke
+        siv_smoke
+        sockpair_events_smoke
+        str_buf_smoke
+        websock_frame_smoke
         term_priv_smoke)
     directgate_smoke(${test})
 endforeach()
@@ -51,6 +61,12 @@ directgate_smoke(search_smoke        ${AGENT_DIR}/search.c ${AGENT_DIR}/files.c)
 directgate_smoke(enroll_prompt_smoke ${AGENT_DIR}/enroll.c)
 directgate_smoke(files_smoke         ${AGENT_DIR}/files.c)
 directgate_smoke(session_smoke       ${AGENT_DIR}/session.c)
+
+# Client utility tests that compile the client-only implementation files.
+directgate_smoke(client_devices_smoke ${CLIENT_DIR}/devices.c)
+directgate_smoke(client_config_smoke  ${CLIENT_DIR}/config.c ${CLIENT_DIR}/devices.c)
+directgate_smoke(client_relay_smoke   ${CLIENT_DIR}/relay.c)
+
 directgate_smoke(connection_lifecycle_smoke
     ${AGENT_DIR}/config.c
     ${AGENT_DIR}/enroll.c

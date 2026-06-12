@@ -50,22 +50,35 @@ void DirectGate_DisplayUsage(const char *pName)
 
 static void DirectGate_SetDefaultConfigPath(directgate_cfg_t *pCfg)
 {
-    const char *pHomeDir = getenv("HOME");
-    if (!xstrused(pHomeDir))
+#ifdef _WIN32
+    /* Windows convention: per-user roaming application data. Forward
+       slashes keep the paths JSON-safe wherever they get serialized. */
+    const char *pAppData = getenv("APPDATA");
+    if (xstrused(pAppData))
     {
-        struct passwd *pUser = getpwuid(getuid());
-        if (pUser != NULL && xstrused(pUser->pw_dir)) pHomeDir = pUser->pw_dir;
-    }
+        xstrncpyf(pCfg->sCfgPath, sizeof(pCfg->sCfgPath),
+            "%s/directgate/client.json", pAppData);
+        xstrncpyf(pCfg->sDeviceList, sizeof(pCfg->sDeviceList),
+            "%s/directgate/devices", pAppData);
 
-    if (!xstrused(pHomeDir))
+        DirectGate_PathToSlash(pCfg->sCfgPath);
+        DirectGate_PathToSlash(pCfg->sDeviceList);
+        return;
+    }
+#endif
+
+    char sHomeDir[XPATH_MAX];
+    DirectGate_GetHomeDir(sHomeDir, sizeof(sHomeDir));
+
+    if (!xstrused(sHomeDir))
     {
         xstrncpy(pCfg->sCfgPath, sizeof(pCfg->sCfgPath), "./client.json");
         xstrncpyf(pCfg->sDeviceList, sizeof(pCfg->sDeviceList), "./devices");
     }
     else
     {
-        xstrncpyf(pCfg->sCfgPath, sizeof(pCfg->sCfgPath), "%s/%s", pHomeDir, DIRECTGATE_CLIENT_CONFIG);
-        xstrncpyf(pCfg->sDeviceList, sizeof(pCfg->sDeviceList), "%s/%s", pHomeDir, DIRECTGATE_CLIENT_DEVICES);
+        xstrncpyf(pCfg->sCfgPath, sizeof(pCfg->sCfgPath), "%s/%s", sHomeDir, DIRECTGATE_CLIENT_CONFIG);
+        xstrncpyf(pCfg->sDeviceList, sizeof(pCfg->sDeviceList), "%s/%s", sHomeDir, DIRECTGATE_CLIENT_DEVICES);
     }
 }
 
@@ -407,6 +420,7 @@ XSTATUS DirectGate_ParseArgs(directgate_cfg_t *pCfg, int argc, char *argv[])
             return XSTDNON;
         }
 
+        XMap_Destroy(&deviceMap);
         return XSTDNON;
     }
 
